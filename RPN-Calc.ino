@@ -14,7 +14,7 @@ const byte lcdDC = 14, lcdCS = 8, lcdRS = 15, lcdBL = 9;
 byte lcdContrast = 140, lcdBrightness = 255;
 U8G2_PCD8544_84X48_F_4W_HW_SPI display(U8G2_R0, lcdCS, lcdDC, lcdRS);
 
-unsigned long lastEventQuery = 0;
+Schedule eventSchedule;
 
 const char keymap[4][3] = {
   {'1','2','3'},
@@ -171,6 +171,9 @@ void setup() {
   // Clear the display
   textViewClearAll();
   textViewRender();
+
+  // Set up the event scheduler
+  scheduleInit(10000, NULL, &eventSchedule);
 }
 
 void loop() {
@@ -294,13 +297,11 @@ void surviveMaths(void) {
 
 // Do events in a blocking loop
 void doEvents(void) {
-  // run every 10 seconds
-  if(millis() - lastEventQuery > 10000 || lastEventQuery == 0) {
+  if(scheduleRun(&eventSchedule)) {
     Serial.println("Updating display status bar...");
     textViewStatusUpdate();
     if(textViewAllowAutoRender)
       textViewRender();
-    lastEventQuery = millis();
   }
 }
 
