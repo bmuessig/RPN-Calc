@@ -58,10 +58,12 @@ void stackMath(void) {
               case SOP_SUB:
               case SOP_MUL:
               case SOP_DIV:
+              case SOP_MOD:
               case SOP_POW:
-              case SOP_LOG:
               case SOP_EE:
+              case SOP_LOG:
               case SOP_SWP:
+              case SOP_ROUND:
                 if(!doubleStackPop(&stack, &val1)) {
                   error = STMATH_ERR_UNDERFLOW;
                   break;
@@ -78,17 +80,30 @@ void stackMath(void) {
               case SOP_SQ:
               case SOP_SQRT:
               case SOP_LOG10:
+              case SOP_LN:
+              case SOP_FAC:
               case SOP_ABS:
               case SOP_NEG:
-              case SOP_LN:
-              case SOP_DUP:
-              case SOP_POP:
+              case SOP_SGN:
               case SOP_SIN:
               case SOP_COS:
               case SOP_TAN:
               case SOP_ASIN:
               case SOP_ACOS:
               case SOP_ATAN:
+              case SOP_SINH:
+              case SOP_COSH:
+              case SOP_TANH:
+              case SOP_ASINH:
+              case SOP_ACOSH:
+              case SOP_ATANH:
+              case SOP_DUP:
+              case SOP_CPY:
+              case SOP_POP:
+              case SOP_IROUND:
+              case SOP_FLOOR:
+              case SOP_CEIL:
+              case SOP_FPART:
               //case SOP_MACRO:
                 if(!doubleStackPop(&stack, &val1)) {
                   error = STMATH_ERR_UNDERFLOW;
@@ -103,110 +118,192 @@ void stackMath(void) {
           if(!error) {
             switch(selection) {
                 case SOP_ADD:
-                  doubleStackPush(val2 + val1, &stack);
+                  stackMathPush(val2 + val1, &error, &stack);
                 break;
                 case SOP_SUB:
-                  doubleStackPush(val2 - val1, &stack);
+                  stackMathPush(val2 - val1, &error, &stack);
                 break;
                 case SOP_MUL:
-                  doubleStackPush(val2 * val1, &stack);
+                  stackMathPush(val2 * val1, &error, &stack);
                 break;
                 case SOP_DIV:
                   if(val2 == 0) {
                     error = STMATH_ERR_DIVZERO;
                     break;
                   }
-                  doubleStackPush(val2 / val1, &stack);
+                  stackMathPush(val2 / val1, &error, &stack);
+                break;
+                case SOP_MOD:
+                  if(val2 == 0) {
+                    error = STMATH_ERR_DIVZERO;
+                    break;
+                  }
+                  stackMathPush(fmod(val2, val1), &error, &stack);
                 break;
                 case SOP_INC:
-                  doubleStackPush(val1 + 1, &stack);
+                  stackMathPush(val1 + 1, &error, &stack);
                 break;
                 case SOP_DEC:
-                  doubleStackPush(val2 - 1, &stack);
+                  stackMathPush(val2 - 1, &error, &stack);
                 break;
                 case SOP_POW:
-                  doubleStackPush(pow(val2, val1), &stack);
+                  stackMathPush(pow(val2, val1), &error, &stack);
                 break;
                 case SOP_EE:
-                  doubleStackPush(val2 * pow(10, val1), &stack);
+                  stackMathPush(val2 * pow(10, val1), &error, &stack);
                 break;
                 case SOP_SQ:
-                  doubleStackPush(sq(val1), &stack);
+                  stackMathPush(sq(val1), &error, &stack);
                 break;
                 case SOP_SQRT:
-                  doubleStackPush(sqrt(val1), &stack);
+                  stackMathPush(sqrt(val1), &error, &stack);
                 break;
                 case SOP_LOG10:
-                  doubleStackPush(log(val1) / log(10), &stack);
-                break;
-                case SOP_LOG:
-                  doubleStackPush(log(val2) / log(val1), &stack);
-                break;
-                case SOP_ABS:
-                  doubleStackPush(abs(val1), &stack);
-                break;
-                case SOP_NEG:
-                  doubleStackPush(-val1, &stack);
+                  stackMathPush(log(val1) / log(10), &error, &stack);
                 break;
                 case SOP_LN:
-                  doubleStackPush(log(val1), &stack);
+                  stackMathPush(log(val1), &error, &stack);
                 break;
+                case SOP_LOG:
+                  stackMathPush(log(val2) / log(val1), &error, &stack);
+                break;
+                case SOP_FAC:
+                  if(val1 < 0) {
+                    error = STMATH_ERR_RANGE;
+                    break;
+                  }
+                  if(round(val1) != val1) {
+                    error = STMATH_ERR_NOTINT;
+                    break;
+                  }
+                  stackMathPush(fact(val1), &error, &stack);
+                break;
+                case SOP_ABS:
+                  stackMathPush(abs(val1), &error, &stack);
+                break;
+                case SOP_NEG:
+                  stackMathPush(-val1, &error, &stack);
+                break;
+                case SOP_SGN:
+                  stackMathPush(val1 / abs(val1), &error, &stack);
+                break;
+                case SOP_SIN:
+                  if(useRads)
+                    stackMathPush(sin(val1), &error, &stack);
+                  else
+                    stackMathPush(sin(degToRad(val1)), &error, &stack);
+                break;
+                case SOP_COS:
+                  if(useRads)
+                    stackMathPush(cos(val1), &error, &stack);
+                  else
+                    stackMathPush(cos(degToRad(val1)), &error, &stack);
+                break;
+                case SOP_TAN:
+                  if(useRads)
+                    stackMathPush(tan(val1), &error, &stack);
+                  else
+                    stackMathPush(tan(degToRad(val1)), &error, &stack);
+                break;
+                case SOP_ASIN:
+                  if(useRads)
+                    stackMathPush(asin(val1), &error, &stack);
+                  else
+                    stackMathPush(radToDeg(asin(val1)), &error, &stack);
+                break;
+                case SOP_ACOS:
+                  if(useRads)
+                    stackMathPush(acos(val1), &error, &stack);
+                  else
+                    stackMathPush(radToDeg(acos(val1)), &error, &stack);
+                break;
+                case SOP_ATAN:
+                  if(useRads)
+                    stackMathPush(atan(val1), &error, &stack);
+                  else
+                    stackMathPush(radToDeg(atan(val1)), &error, &stack);
+                break;
+                case SOP_SINH:
+                  if(useRads)
+                    stackMathPush(sinh(val1), &error, &stack);
+                  else
+                    stackMathPush(sinh(degToRad(val1)), &error, &stack);
+                break;
+                case SOP_COSH:
+                  if(useRads)
+                    stackMathPush(cosh(val1), &error, &stack);
+                  else
+                    stackMathPush(cosh(degToRad(val1)), &error, &stack);
+                break;
+                case SOP_TANH:
+                  if(useRads)
+                    stackMathPush(tanh(val1), &error, &stack);
+                  else
+                    stackMathPush(tanh(degToRad(val1)), &error, &stack);
+                  break;
+                case SOP_ASINH:
+                  if(useRads)
+                    stackMathPush(asinh(val1), &error, &stack);
+                  else
+                    stackMathPush(radToDeg(asinh(val1)), &error, &stack);
+                case SOP_ACOSH:
+                  if(useRads)
+                    stackMathPush(acosh(val1), &error, &stack);
+                  else
+                    stackMathPush(radToDeg(acosh(val1)), &error, &stack);
+                case SOP_ATANH:
+                  if(useRads)
+                    stackMathPush(atanh(val1), &error, &stack);
+                  else
+                    stackMathPush(radToDeg(atanh(val1)), &error, &stack);
                 case SOP_PI:
-                  doubleStackPush(PI, &stack);
+                  stackMathPush(PI, &error, &stack);
                 break;
                 case SOP_E:
-                  doubleStackPush(M_E, &stack);
+                  stackMathPush(M_E, &error, &stack);
                 break;
                 case SOP_TAU:
-                  doubleStackPush(PI*2, &stack);
+                  stackMathPush(PI * 2, &error, &stack);
                 break;
                 case SOP_DUP:
-                  doubleStackPush(val1, &stack);
-                  doubleStackPush(val1, &stack);
+                  stackMathPush(val1, &error, &stack);
+                  stackMathPush(val1, &error, &stack);
+                break;
+                case SOP_CPY:
+                  if(doubleStackPeekAt(val1, &stack, &val2)) {
+                    stackMathPush(val2, &error, &stack);
+                  } else
+                    error = STMATH_ERR_RANGE;
                 break;
                 case SOP_POP:
                   // just put nothing back
                 break;
                 case SOP_SWP:
                   // put back in reverse order
-                  doubleStackPush(val1, &stack);
-                  doubleStackPush(val2, &stack);
+                  stackMathPush(val1, &error, &stack);
+                  stackMathPush(val2, &error, &stack);
                 break;
-                case SOP_SIN:
-                  if(useRads)
-                    doubleStackPush(sin(val1), &stack);
-                  else
-                    doubleStackPush(sin(degToRad(val1)), &stack);
+                case SOP_RAND:
+                  stackMathPush(randDouble(), &error, &stack);
                 break;
-                case SOP_COS:
-                  if(useRads)
-                    doubleStackPush(cos(val1), &stack);
-                  else
-                    doubleStackPush(cos(degToRad(val1)), &stack);
+                case SOP_ROUND:
+                  if(round(val1) != val1) {
+                    error = STMATH_ERR_NOTINT;
+                    break;
+                  }
+                  stackMathPush(roundTo(val2, (byte)round(val1)), &error, &stack);
                 break;
-                case SOP_TAN:
-                  if(useRads)
-                    doubleStackPush(tan(val1), &stack);
-                  else
-                    doubleStackPush(tan(degToRad(val1)), &stack);
+                case SOP_IROUND:
+                  stackMathPush(round(val1), &error, &stack);
                 break;
-                case SOP_ASIN:
-                  if(useRads)
-                    doubleStackPush(asin(val1), &stack);
-                  else
-                    doubleStackPush(radToDeg(asin(val1)), &stack);
+                case SOP_FLOOR:
+                  stackMathPush(floor(val1), &error, &stack);
                 break;
-                case SOP_ACOS:
-                  if(useRads)
-                    doubleStackPush(acos(val1), &stack);
-                  else
-                    doubleStackPush(radToDeg(acos(val1)), &stack);
+                case SOP_CEIL:
+                  stackMathPush(ceil(val1), &error, &stack);
                 break;
-                case SOP_ATAN:
-                  if(useRads)
-                    doubleStackPush(atan(val1), &stack);
-                  else
-                    doubleStackPush(radToDeg(atan(val1)), &stack);
+                case SOP_FPART:
+                  stackMathPush(val1 - ceil(val1), &error, &stack);
                 break;
                 case SOP_DEG:
                   useRads = false;
@@ -237,6 +334,12 @@ void stackMath(void) {
             break;
             case STMATH_ERR_OVERFLOW:
               display.userInterfaceMessage("Error:", "Stack overflow!", "", " OK ");
+            break;
+            case STMATH_ERR_RANGE:
+              display.userInterfaceMessage("Error:", "Input out of range!", "", " OK ");
+            break;
+            case STMATH_ERR_NOTINT:
+              display.userInterfaceMessage("Error:", "Input not an integer!", "", " OK ");
             break;
             case STMATH_ERR_DIVZERO:
               display.userInterfaceMessage("Error:", "Division by 0!", "", " OK ");
@@ -301,10 +404,28 @@ void stackMath(void) {
   uiControl();
 }
 
+void stackMathPush(double value, byte* error, DoubleStack* stack) {
+  if(!*error)
+    *error = doubleStackPush(value, stack) ? STMATH_ERR_NONE : STMATH_ERR_OVERFLOW;
+}
+
 double radToDeg(double degVal) {
   return degVal * (180 / PI);
 }
 
 double degToRad(double radVal) {
   return radVal * (PI / 180);
+}
+
+double randDouble(void) {
+  return ((double)rand()/(double)RAND_MAX);
+}
+
+double fact(double x) {
+  return tgamma(x+1.);
+}
+
+double roundTo(double x, byte digits) {
+    double fac = pow(10, digits);
+    return round(x*fac)/fac;
 }
