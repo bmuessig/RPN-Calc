@@ -2,6 +2,8 @@
 #define TEXTVIEW_H
 
 #include <Arduino.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <SPI.h>
 #include <SD.h>
 #include <U8g2lib.h>
