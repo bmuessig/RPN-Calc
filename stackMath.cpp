@@ -64,6 +64,8 @@ void stackMath(void) {
               case SOP_LOG:
               case SOP_SWP:
               case SOP_ROUND:
+              case SOP_MIN:
+              case SOP_MAX:
                 if(!doubleStackPop(&stack, &val1)) {
                   error = STMATH_ERR_UNDERFLOW;
                   break;
@@ -85,6 +87,7 @@ void stackMath(void) {
               case SOP_ABS:
               case SOP_NEG:
               case SOP_SGN:
+              case SOP_INV:
               case SOP_SIN:
               case SOP_COS:
               case SOP_TAN:
@@ -104,14 +107,10 @@ void stackMath(void) {
               case SOP_FLOOR:
               case SOP_CEIL:
               case SOP_FPART:
-              //case SOP_MACRO:
                 if(!doubleStackPop(&stack, &val1)) {
                   error = STMATH_ERR_UNDERFLOW;
                   break;
                 }
-              break;
-              case SOP_MACRO:
-                error = STMATH_ERR_NOTIMPL;
               break;
             }
 
@@ -186,6 +185,9 @@ void stackMath(void) {
                 break;
                 case SOP_SGN:
                   stackMathPush(val1 / abs(val1), &error, &stack);
+                break;
+                case SOP_INV:
+                  stackMathPush(1 / val1, &error, &stack);
                 break;
                 case SOP_SIN:
                   if(useRads)
@@ -305,6 +307,12 @@ void stackMath(void) {
                 case SOP_FPART:
                   stackMathPush(val1 - ceil(val1), &error, &stack);
                 break;
+                case SOP_MIN:
+                  stackMathPush(val1 < val2 ? val1 : val2, &error, &stack);
+                break;
+                case SOP_MAX:
+                  stackMathPush(val1 > val2 ? val1 : val2, &error, &stack);
+                break;
                 case SOP_DEG:
                   useRads = false;
                 break;
@@ -315,9 +323,6 @@ void stackMath(void) {
                   uiControl();
                   uiMessagePrintf("Angle Mode: %s", " OK ", useRads ? "RAD" : "DEG");
                   keyControl();
-                break;
-                case SOP_MACRO:
-                  error = STMATH_ERR_NOTIMPL;
                 break;
                 default:
                   error = STMATH_ERR_UNKNOWN;

@@ -42,6 +42,7 @@ const char* stackMathOpNames[] = {
   "ABS",    //
   "NEG",    //
   "SGN",    //
+  "INV",    //
   "SIN",    //
   "COS",    //
   "TAN",    //
@@ -67,10 +68,11 @@ const char* stackMathOpNames[] = {
   "FLOOR",  //
   "CEIL",   //
   "FPART",  //
+  "MIN",    //
+  "MAX",    //
   "DEG",    //
   "RAD",    //
-  "FLAGS",  //
-  "MACRO"
+  "FLAGS"   //
 };
 
 enum {
@@ -92,6 +94,7 @@ enum {
   SOP_ABS,
   SOP_NEG,
   SOP_SGN,
+  SOP_INV,
   SOP_SIN,
   SOP_COS,
   SOP_TAN,
@@ -117,10 +120,11 @@ enum {
   SOP_FLOOR,
   SOP_CEIL,
   SOP_FPART,
+  SOP_MIN,
+  SOP_MAX,
   SOP_DEG,
   SOP_RAD,
   SOP_FLAGS,
-  SOP_MACRO,
   SOP_ELEMENT_COUNT
 } stackMathOps;
 
