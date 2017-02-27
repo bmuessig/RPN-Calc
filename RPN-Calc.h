@@ -1,5 +1,5 @@
-#ifndef RPNCALC_H
-#define RPNCALC_H
+#ifndef RPN_CALC_H
+#define RPN_CALC_H
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -9,7 +9,7 @@
 #include <SparkFunMAX17043.h>
 #include <Keypad.h>
 
-#define VERSION "1.2"
+#define VERSION "1.3"
 //#define DEBUG
 
 #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
@@ -35,5 +35,7 @@ extern byte ledBrightness;
 
 extern File sdRoot;
 extern const byte sdCS;
+
+void doEvents(void);
 
 #endif

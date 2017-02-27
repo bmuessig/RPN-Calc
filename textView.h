@@ -8,6 +8,7 @@
 #include <Wire.h>
 #include <SparkFunMAX17043.h>
 #include <TimeLib.h>
+#include "RPN-Calc.h"
 
 // Our text buffer
 #define textViewFont u8g2_font_4x6_mr

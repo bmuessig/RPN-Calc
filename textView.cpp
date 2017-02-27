@@ -1,5 +1,3 @@
-#include <Arduino.h>
-#include "RPNCalc.h"
 #include "textView.h"
 
 const byte textViewChrW = 4, textViewChrH = 6, textViewRows = 8, textViewCols = 21, textViewStatusLen = 10,
@@ -116,7 +114,7 @@ unsigned int textViewPrintfAt(const char* format, byte color, byte row, byte col
   textViewCol = col;
   textViewColor = color;
   textViewNextLf = false;
-  
+
   va_list args;
   va_start(args, col);
   unsigned int strLength;
@@ -144,7 +142,7 @@ unsigned int textViewNPrintfAt(const char* format, unsigned int maxLength, byte 
   textViewCol = col;
   textViewColor = color;
   textViewNextLf = false;
-  
+
   va_list args;
   va_start(args, col);
   unsigned int outLength = vsnprintf(sbuf, maxLength + 1, format, args);
@@ -174,7 +172,7 @@ void textViewLinefeed(void) {
       for(byte col = 0; col < textViewCols; col++)
         textView[(row - 1) * textViewCols + col] = textView[row * textViewCols + col];
     }
-    
+
     for(byte col = 0; col < textViewCols; col++)
       textView[(textViewRows - 1) * textViewCols + col] = 32 << 2;
   } else
@@ -275,7 +273,7 @@ bool textViewPutChr(char chr) {
     return true;
   } else if(chr >= 32) {
     textView[(unsigned int)textViewRow * textViewCols + textViewCol] = (chr << 2) | (textViewColor & 0x3);
-    
+
     if(textViewCol + 1 >= textViewCols)
       if(textViewImmLf)
         textViewLinefeed();
@@ -299,7 +297,7 @@ void textViewRender(void) {
 void textViewDraw(void) {
   // set the font
   display.setFont(textViewFont);
-  
+
   for(byte row = 0; row < textViewRows; row++) {
     for(byte col = 0; col < textViewCols; col++) {
       unsigned short glyph = textView[row * textViewCols + col];
@@ -330,7 +328,7 @@ void textViewDraw(void) {
           display.setDrawColor(2);
           break;
       }
-      
+
       display.drawGlyph(col * textViewChrW, (row + 1) * textViewChrH, textView[row * textViewCols + col] >> 2);
     }
   }
@@ -346,4 +344,3 @@ unsigned int textlen(char* str) {
 
   return len;
 }
-

@@ -9,8 +9,10 @@
 #include <Keypad.h>
 #include <TimeLib.h>
 
-#include "RPNCalc.h"
+#include "RPN-Calc.h"
 #include "textView.h"
+#include "keyUtils.h"
+#include "userInterface.h"
 #include "schedule.h"
 #include "doubleStack.h"
 
@@ -111,14 +113,14 @@ const byte sdCS = 16;
 void setup() {
   // Set up the serial port
   Serial.begin(230400);
-  
+
   // Waiting for brightness setup
   uiControl();
   if(!digitalRead(keypadCols[0]))
     ledBrightness = 0;
   if(!digitalRead(keypadCols[2]))
     lcdBrightness = 0;
-  
+
   // Set up the LED
   pinMode(led, OUTPUT);
 
@@ -127,7 +129,7 @@ void setup() {
 
   Serial.println(F("RPN-Calculator version " VERSION " booting"));
   Serial.println();
-  
+
   // Start the battery management IC
   Serial.print(F("Setting up the battery management IC..."));
   lipo.begin();
@@ -145,11 +147,10 @@ void setup() {
     Serial.print(lipo.getVoltage(), DEC);
     Serial.println("v) too low to boot.");
     Serial.println("Hanging the CPU!");
-    while(1) { // hang the cpu drawing as few power as possible
+    while(1) // hang the cpu drawing as few power as possible
       delay(100);
-    }
   }
-  
+
   // Initialize the SPI CS pins
   Serial.print(F("Configuring the serial peripheral interface..."));
   pinMode(sdCS, OUTPUT);
@@ -182,7 +183,7 @@ void setup() {
 #ifndef DEBUG
   delay(1600);
 #endif
-  
+
   textViewPutCStr("Setting up SD: ");
   textViewRender();
   Serial.print(F("Setting up the SD card..."));
@@ -193,7 +194,7 @@ void setup() {
     textViewRender();
     Serial.println(F(" failed!"));
     Serial.println(F("Rebooting system!"));
-  
+
     // Blink the led
     for(int i=0; i < 2; i++) {
       analogWrite(led, ledBrightness);
@@ -244,7 +245,7 @@ void setup() {
 #ifndef DEBUG
   delay(600);
 #endif
- 
+
   // Clear the display
   textViewClearAll();
   textViewRender();
@@ -308,7 +309,7 @@ void stackMath(void) {
     // We don't have enough RAM left to do anything; shouldn't ever happen
     return;
   }
-   
+
   while(true) {
     if(key = keypad.getKey()) {
       if(key >= '0' && key <= '9') { // enter numbers
@@ -331,7 +332,7 @@ void stackMath(void) {
         uiControl();
         bool doQuit = display.userInterfaceMessage("Quit?", "Really quit?", "", " No \n Yes ") == 2;
         keyControl();
-        
+
         if(doQuit)
           break;
         else
@@ -518,7 +519,7 @@ void stackMath(void) {
                 break;
               }
           }
-          
+
           uiControl();
           switch(error) {
             case STMATH_ERR_NONE:
@@ -555,14 +556,14 @@ void stackMath(void) {
 
       // Draw the stack
       double stackVal;
-      
+
       if(stack.pointer) {
         textViewSet(1, 0, TV_COLOR_F1H0);
 #ifdef DEBUG
         Serial.print("Stackptr: ");
         Serial.println(stack.pointer, DEC);
 #endif
-        for(byte ptr = 0; ptr < clampVal(stack.pointer, 0, 6); ptr++) {
+        for(byte ptr = 0; ptr < constrain(stack.pointer, 0, 6); ptr++) {
 #ifdef DEBUG
           Serial.print("Pointer: ");
           Serial.println(ptr, DEC);
@@ -592,195 +593,6 @@ void stackMath(void) {
   uiControl();
 }
 
-const byte charMapSegments = 10, charMapFields = 5;
-const char charMap[charMapSegments][charMapFields] = {
-  {'1',   0,   0,   0,   0}, {'A', 'B', 'C', '2',   0}, {'D', 'E', 'F', '3',   0},
-  {'G', 'H', 'I', '4',   0}, {'J', 'K', 'L', '5',   0}, {'M', 'N', 'O', '6',   0},
-  {'P', 'Q', 'R', 'S', '7'}, {'T', 'U', 'V', '8',   0}, {'W', 'X', 'Y', 'Z', '9'},
-                             {' ', '_', '0',   0,   0}
-};
-
-bool matchMapSegment(char key, byte* segment) {
-  if(key >= '1' && key <= '9') {
-    *segment = key - '1';
-    return true;
-  } else if(key == '0') {
-    *segment = 9;
-    return true;
-  } else
-    return false;
-}
-
-bool mapSegmentMatchesChar(char chr, byte segment) {
-  // make the letter (if applicable) uppercase
-  if(chr >= 'a' && chr <= 'z')
-    chr = 'A' - 'a' + chr;
-    
-#ifdef DEBUG
-  Serial.print("Chr: ");
-  Serial.print(chr);
-#endif
-    
-  for(byte field = 0; field < charMapFields; field++) {
-    if(chr == charMap[segment][field]) {
-#ifdef DEBUG
-      Serial.print(" : Match : Segment ");
-      Serial.println(segment, DEC);
-#endif
-      return true;
-    }
-  }
-
-#ifdef DEBUG
-  Serial.println(": No match");
-#endif
-  return false;
-}
-
-byte findClosestIndices(char* keyString, const char** items, byte itemCount, byte* indices, byte maxIndices)
-{
-  if(!keyString || !items || !itemCount || !indices || !maxIndices)
-    return 0; // invalid parameters will not produce valid results
-
-  byte indicesFound = 0, item = 0;
-  while(indicesFound < maxIndices && item < itemCount) { // loop for as long as we have items or can find further items
-    if(strlen(items[item]) < strlen(keyString)) { // if the string is already longer than the item, skip it for speed
-#ifdef DEBUG
-      Serial.println("Skipping due to length");
-#endif
-      item++;
-      continue;
-    }
-    // we now know that the current items length is smaller or equal to the key sequences length
-
-    bool isMatching = true;
-    for(byte chrPos = 0; chrPos < strlen(keyString); chrPos++) { // here we loop through the letters of the key string
-      char itemChr = items[item][chrPos], keyChr = keyString[chrPos];
-      byte mapSegment;
-
-      // now, match the pressed key to a map segment
-      if(!matchMapSegment(keyChr, &mapSegment))
-        return 0; // key string is invalid
-
-#ifdef DEBUG
-      Serial.print("Key: ");
-      Serial.println(keyChr);
-#endif
-        
-      // then check if the segment contains the items character
-      if(!mapSegmentMatchesChar(itemChr, mapSegment)) {
-        // it doesn't, so ...
-        isMatching = false; // tell the succeeding code we don't have a match        
-        break; // and exit the string comparing loop
-      }
-      // it does, so ...
-      // keep going
-    }
-
-    // did we have a match?
-    if(isMatching)
-      indices[indicesFound++] = item;
-
-    // advance the item pointer
-    item++;
-
-    // and loop again (if possible)
-  }
-
-  return indicesFound;
-}
-
-byte showItemMenu(char* title, byte defaultItem, const char** allItems, byte numItems, byte* shownItems) {
-  if(!numItems)
-    return 0;
-
-  unsigned int menuStrLength = numItems, menuStrPtr = 0; // initialize with the number of linefeeds + 1 (trailing 0-byte)
-  for(byte item = 0; item < numItems; item++) // count the required length of our string buffer
-    menuStrLength += strlen(allItems[shownItems[item]]);
-  char menuStr[menuStrLength];
-  for(byte item = 0; item < numItems; item++) {
-    if(item)
-      menuStr[menuStrPtr++] = '\n'; // for all items except the first, add a preceeding linefeed
-    strcpy((char*)(menuStr + menuStrPtr), allItems[shownItems[item]]); // copy the string to our buffer
-    menuStrPtr += strlen(allItems[shownItems[item]]); // add the length of the string, except for the zero byte that we'll overwrite
-  }
-  
-  return display.userInterfaceSelectionList(title, defaultItem, menuStr);
-}
-
-bool smartMenu(const char* title, const char** items, byte itemCount, byte maxItemsListed, byte* selection) {
-  if(!title || !items || !itemCount || !maxItemsListed || !selection)
-    return false;
-  
-  const byte keyStringLength = 18;
-  char keyString[keyStringLength + 1] = {0}, key;
-  const byte shownIndices = 5;
-  byte cursor = 0, indices[maxItemsListed], numIndices = 0;
-  bool doRedraw = true;
-
-  memset(indices, 0, maxItemsListed);
-  textViewClear();
-  while(true) {
-    if(key = keypad.getKey()) {
-      if(key >= '0' && key <= '9') {
-        if(cursor < keyStringLength) {
-          keyString[cursor++] = key;
-          doRedraw = true;
-        }
-      } else if(key == '*') {
-        if(cursor) {
-          keyString[--cursor] = 0; // delete the previous character
-          doRedraw = true; // schedule a redraw
-        } else
-          return false;
-      } else if(key == '#') {
-        if(numIndices)
-          break;
-      }
-    }
-
-    if(doRedraw) {
-      doRedraw = false;
-      
-      textViewClear();
-      textViewStatusUpdate();
-      textViewPutCStrAt((char*)title, TV_COLOR_F0H1, 1, 0);
-      textViewPutCStrAt("> ", TV_COLOR_F1H0, 2, 0);
-      textViewPutCStrAt(keyString, TV_COLOR_F1H0, 2, 2);
-      
-      // We're in the 4th (index 5) row and draw the suggestions to the 8th row (index 7)
-      numIndices = findClosestIndices(keyString, items, itemCount, indices, maxItemsListed);
-#ifdef DEBUG
-      Serial.print("Key string: ");
-      Serial.println(keyString);
-      Serial.print("Indices: ");
-      Serial.println(numIndices, DEC);
-#endif
-      for(byte index = 0; index < clampVal(numIndices, 0, shownIndices); index++)
-        textViewPutCStrAt((char*)items[indices[index]], TV_COLOR_F1H0, index + 3, 0);
-      textViewRender();
-    }
-
-    doEvents();
-  }
-
-  textViewClear();
-  textViewRender();
-
-  if(numIndices == 1) {
-    *selection = indices[0];
-    keyControl();
-    return true;
-  } else if(numIndices > 1) {
-    uiControl();
-    *selection = indices[showItemMenu((char*)title, 1, items, numIndices, indices) - 1];
-    keyControl();
-    return true;
-  }
-  
-  return false;
-}
-
 /////// SNAKE /////
 
 enum {
@@ -790,25 +602,25 @@ enum {
 
 enum {
   SNAKE_DIR_NONE  = 0b0000,
-  
+
   SNAKE_DIR_HORIZ = 0b0001,
   SNAKE_DIR_EAST  = 0b0001,
   SNAKE_DIR_WEST  = 0b0011,
-  
+
   SNAKE_DIR_VERT  = 0b0100,
   SNAKE_DIR_NORTH = 0b0100,
   SNAKE_DIR_SOUTH = 0b1100,
 
   SNAKE_DIR_NE    = SNAKE_DIR_NORTH | SNAKE_DIR_EAST,
   SNAKE_DIR_NW    = SNAKE_DIR_NORTH | SNAKE_DIR_WEST,
-  
+
   SNAKE_DIR_SE    = SNAKE_DIR_SOUTH | SNAKE_DIR_EAST,
   SNAKE_DIR_SW    = SNAKE_DIR_SOUTH | SNAKE_DIR_WEST
 } snakeDirections;
 
 void snake(void) {
   bool stillAlive = true;
-  
+
   while(stillAlive) {
     uiControl();
     switch(display.userInterfaceSelectionList("Snake", 1, "Play\nHigh scores\nQuit")) {
@@ -825,7 +637,7 @@ void snake(void) {
       break;
     }
   }
-  
+
   textViewClearAll();
   textViewRender();
   uiControl();
@@ -845,7 +657,7 @@ void snakeGame(void) {
 
   // Initialize the scheduler to run every 500 ms
   scheduleInit(500, NULL, &logicSchedule);
-  
+
   while(isRunning) {
     // Check for key presses every cycle
     switch(key = keypad.getKey()) {
@@ -887,35 +699,35 @@ void snakeGame(void) {
         // will pause the game
       break;
     }
-    
+
     // Run the game logic every n-milliseconds
     if(scheduleRun(&logicSchedule)) {
       Serial.println("Event!");
     }
-    
+
     if(doRedraw) {
       doRedraw = true;
       textViewClear();
-      
+
       // Render the playfield
       // First, render the snake itself
       for(byte segment = 0; segment < snakeLength; segment++)
-        textViewPutChrAt(segment ? 'Q' : '*', segment ? TV_COLOR_F1H0 : TV_COLOR_F0H1, snake[segment][0], snake[segment][1]); 
+        textViewPutChrAt(segment ? 'Q' : '*', segment ? TV_COLOR_F1H0 : TV_COLOR_F0H1, snake[segment][0], snake[segment][1]);
 
       // Now render the candy
       for(byte berry = 0; berry < maxCandy; berry++) {
         if(candy[berry][0] == SNAKE_CANDY_PRESENT)
           textViewPutChrAt('$', TV_COLOR_F0H1, candy[berry][2], candy[berry][3]);
       }
-      
+
       textViewRender();
     }
   }
-  
+
 }
 
 void snakeHighScores(void) {
-  
+
 }
 
 ////// SURVIVE MATHS /////
@@ -942,7 +754,7 @@ void surviveMaths(void) {
     keyControl();
   } else
     resumeTimer = true;
-  
+
   if(resumeTimer) {
     textViewPutCStr("End Hour: ");
     if(!intEntry(&surviveEndHour, false)) {
@@ -976,7 +788,7 @@ void surviveMaths(void) {
   textViewLinefeed();
   textViewAllowAutoRender = false;
   display.setPowerSave(true);
-  
+
   while(targetTime > (curTime = CUR_TIME_TO_SECS())) {
     doEvents();
     if((key = keypad.getKey()) && key == '#') {
@@ -1018,7 +830,7 @@ void basicMath(void) {
   char key;
   double num1 = NAN, num2 = NAN, res = 0;
   bool success = true;
-  
+
   textViewClearAll();
   keyControl();
   textViewSetTitle("Basic Math");
@@ -1086,14 +898,14 @@ void keyTest(void) {
 
   while(true) {
     doEvents();
-    
+
     if(key = keypad.getKey()) {
       textViewPutChr(key);
       textViewRender();
 
       if(key == '*') {
         if(lastStar) {
-          keyControl(); 
+          keyControl();
           break;
         } else
           lastStar = true;
@@ -1105,14 +917,6 @@ void keyTest(void) {
   textViewClearAll();
   textViewRender();
   uiControl();
-}
-
-int clampVal(int value, int min, int max) {
-  if(value < min)
-    return min;
-  if(value > max)
-    return max;
-  return value;
 }
 
 double radToDeg(double degVal) {
@@ -1133,60 +937,6 @@ void doEvents(void) {
       textViewRender();
     lastEventQuery = millis();
   }
-}
-
-void uiControl(void) {
-  calmKeys(50, 500);
-  
-  pinMode(keypadRows[3], OUTPUT);
-  digitalWrite(keypadRows[3], LOW);
-
-  for(int i = 0; i < 3; i++)
-    pinMode(keypadCols[i], INPUT_PULLUP);
-}
-
-void keyControl(void) {
-  while(!calmKeys(50, 500));
-}
-
-char awaitKey(void) {
-  char key;
-  keyControl();
-  while(!(key = keypad.getKey()))
-    doEvents();
-  keyControl();
-  return key;
-}
-
-bool calmKeys(unsigned short cooldown, unsigned short timeout)
-{
-  // Set up the matrix to be all high
-  for(int i = 0; i < 3; i++)
-    pinMode(keypadCols[i], INPUT_PULLUP);
-  for(int i = 0; i < 4; i++) {
-    pinMode(keypadRows[i], OUTPUT);
-    digitalWrite(keypadRows[i], LOW);
-  }
-
-  bool success = false;
-  long startTime = millis(), lastPress = millis();
-  while(startTime + timeout > millis()) { // repeat for as long as nothing times out
-    doEvents();
-    if(!digitalRead(keypadCols[0]) || !digitalRead(keypadCols[1]) || !digitalRead(keypadCols[2]))
-      lastPress = millis();
-    else if(lastPress + cooldown < millis()) {
-      success = true;
-      break;
-    }
-  }
-
-  // Restore the matrix
-  for(int i = 0; i < 3; i++)
-    pinMode(keypadCols[i], INPUT);
-  for(int i = 0; i < 4; i++)
-    pinMode(keypadRows[i], INPUT);
-
-  return success;
 }
 
 void printDirectory(File dir, int numTabs) {
@@ -1212,4 +962,3 @@ void printDirectory(File dir, int numTabs) {
      entry.close();
    }
 }
-
