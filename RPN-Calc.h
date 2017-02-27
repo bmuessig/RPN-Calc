@@ -9,7 +9,7 @@
 #include <SparkFunMAX17043.h>
 #include <Keypad.h>
 
-#define VERSION "1.5"
+#define VERSION "1.6"
 //#define DEBUG
 
 #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C

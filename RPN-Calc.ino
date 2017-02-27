@@ -180,7 +180,7 @@ void loop() {
 
 void mainMenu(void) {
   uiControl();
-  switch(display.userInterfaceSelectionList("System Menu", 1, "Stack Math\nSurvive Maths\nSnake\nKey Test\nReboot")) {
+  switch(display.userInterfaceSelectionList("System Menu", 1, "Stack Math\nSurvive Maths\nPlay Snake\nReboot")) {
     case 1:
       stackMath();
       break;
@@ -191,9 +191,6 @@ void mainMenu(void) {
       snake();
       break;
     case 4:
-      keyTest();
-      break;
-    case 5:
       CPU_RESTART();
       while(1);
   }
@@ -293,42 +290,6 @@ void surviveMaths(void) {
   }
   uiControl();
   delay(200);
-}
-
-////////// KEY TEST //////////
-
-void keyTest(void) {
-  char key;
-  bool lastStar = false;
-
-  textViewClearAll();
-  keyControl();
-  textViewSetTitle("Key test");
-  textViewStatusUpdate();
-  textViewLinefeed();
-  textViewRender();
-
-  while(true) {
-    doEvents();
-
-    if(key = keypad.getKey()) {
-      textViewPutChr(key);
-      textViewRender();
-
-      if(key == '*') {
-        if(lastStar) {
-          keyControl();
-          break;
-        } else
-          lastStar = true;
-      } else
-        lastStar = false;
-    }
-  }
-
-  textViewClearAll();
-  textViewRender();
-  uiControl();
 }
 
 // Do events in a blocking loop
