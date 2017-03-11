@@ -37,8 +37,17 @@ void stackMath(void) {
         doRedraw = true;
         keyControl();
       } else if(key == '*') { // exit
+        bool doQuit = false;
+
         uiControl();
-        bool doQuit = display.userInterfaceMessage("Quit?", "Really quit?", "", " No \n Yes ") == 2;
+        switch (display.userInterfaceMessage("Quit, reset", "or go back?", "", "Back\nQuit\nReset")) {
+          case 2:
+            doQuit = true;
+          break;
+          case 3:
+            doubleStackClear(&stack);
+          break;
+        }
         keyControl();
 
         if(doQuit)
@@ -139,11 +148,29 @@ void stackMath(void) {
                   }
                   stackMathPush(fmod(val2, val1), &error, &stack);
                 break;
+                case SOP_FRX:
+                  int a, b;
+                  textViewClear();
+                  textViewStatusUpdate();
+                  textViewSet(2, 0, TV_COLOR_F1H0);
+                  textViewPutCStr("Fraction a / b\na: ");
+                  if(!intEntry(&a, true))
+                    break;
+                  textViewPutCStr("b: ");
+                  if(!intEntry(&b, false))
+                    break;
+                  keyControl();
+                  if(b == 0) {
+                    error = STMATH_ERR_DIVZERO;
+                    break;
+                  }
+                  stackMathPush((double)((double)a / (double)b), &error, &stack);
+                break;
                 case SOP_INC:
                   stackMathPush(val1 + 1, &error, &stack);
                 break;
                 case SOP_DEC:
-                  stackMathPush(val2 - 1, &error, &stack);
+                  stackMathPush(val1 - 1, &error, &stack);
                 break;
                 case SOP_POW:
                   stackMathPush(pow(val2, val1), &error, &stack);
@@ -155,6 +182,10 @@ void stackMath(void) {
                   stackMathPush(sq(val1), &error, &stack);
                 break;
                 case SOP_SQRT:
+                  if(val1 < 0) {
+                    error = STMATH_ERR_SQRTNEG;
+                    break;
+                  }
                   stackMathPush(sqrt(val1), &error, &stack);
                 break;
                 case SOP_LOG10:
@@ -267,6 +298,9 @@ void stackMath(void) {
                 case SOP_TAU:
                   stackMathPush(PI * 2, &error, &stack);
                 break;
+                case SOP_RAND:
+                  stackMathPush(randDouble(), &error, &stack);
+                break;
                 case SOP_DUP:
                   stackMathPush(val1, &error, &stack);
                   stackMathPush(val1, &error, &stack);
@@ -285,8 +319,8 @@ void stackMath(void) {
                   stackMathPush(val1, &error, &stack);
                   stackMathPush(val2, &error, &stack);
                 break;
-                case SOP_RAND:
-                  stackMathPush(randDouble(), &error, &stack);
+                case SOP_CLR:
+                  error = doubleStackClear(&stack) ? STMATH_ERR_NONE : STMATH_ERR_UNKNOWN;
                 break;
                 case SOP_ROUND:
                   if(round(val1) != val1) {
@@ -305,7 +339,7 @@ void stackMath(void) {
                   stackMathPush(ceil(val1), &error, &stack);
                 break;
                 case SOP_FPART:
-                  stackMathPush(val1 - ceil(val1), &error, &stack);
+                  stackMathPush(val1 - floor(val1), &error, &stack);
                 break;
                 case SOP_MIN:
                   stackMathPush(val1 < val2 ? val1 : val2, &error, &stack);

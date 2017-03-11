@@ -19,6 +19,7 @@ enum {
   STMATH_ERR_NOTINT,
   STMATH_ERR_DIVZERO,
   STMATH_ERR_SQRTNEG,
+  STMATH_ERR_ABORTED,
   STMATH_ERR_NOTIMPL,
   STMATH_ERR_UNKNOWN
 } stackMathErrors;
@@ -29,6 +30,7 @@ const char* stackMathOpNames[] = {
   "MUL",    //
   "DIV",    //
   "MOD",    //
+  "FRX",    //
   "INC",    //
   "DEC",    //
   "POW",    //
@@ -58,11 +60,12 @@ const char* stackMathOpNames[] = {
   "PI",     //
   "E",      //
   "TAU",    //
+  "RAND",   //
   "DUP",    //
   "CPY",    //
   "POP",    //
   "SWP",    //
-  "RAND",   //
+  "CLR",    //
   "ROUND",  //
   "IROUND", //
   "FLOOR",  //
@@ -81,6 +84,7 @@ enum {
   SOP_MUL,
   SOP_DIV,
   SOP_MOD,
+  SOP_FRX,
   SOP_INC,
   SOP_DEC,
   SOP_POW,
@@ -110,11 +114,12 @@ enum {
   SOP_PI,
   SOP_E,
   SOP_TAU,
+  SOP_RAND,
   SOP_DUP,
   SOP_CPY,
   SOP_POP,
   SOP_SWP,
-  SOP_RAND,
+  SOP_CLR,
   SOP_ROUND,
   SOP_IROUND,
   SOP_FLOOR,

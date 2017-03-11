@@ -84,11 +84,42 @@ void snakeGame(void) {
 
     // Run the game logic every n-milliseconds
     if(scheduleRun(&logicSchedule)) {
-      Serial.println("Event!");
+      bool snakeBitten = false, candyEaten = false;
+      byte newRow = snake[0][0], newCol = snake[0][1];
+
+      // Update the position of the first element
+      if(direction & SNAKE_DIR_EAST)
+        newCol++;
+      else if(direction & SNAKE_DIR_WEST)
+        newCol--;
+      if(direction & SNAKE_DIR_SOUTH)
+        newRow++;
+      else if(direction & SNAKE_DIR_NORTH)
+        newCol--;
+
+      // Check if we are either biting ourselves or eating candy
+      for(byte segment = 1; segment < snakeLength; segment++) {
+        if(snake[segment][0] == newRow && snake[segment][1] == newCol) {
+          // collision
+          snakeBitten = true;
+          break;
+        }
+      }
+      for(byte berry = 0; berry < maxCandy && !snakeBitten; berry++) {
+        if(candy[berry][0] == SNAKE_CANDY_PRESENT &&
+          candy[berry][2] == newRow && candy[berry][3] == newCol) {
+          // collision
+          candyEaten = true;
+          break;
+        }
+      }
+
+      // Move the snake elements by one and possibly increment the snake's length
+
     }
 
     if(doRedraw) {
-      doRedraw = true;
+      doRedraw = false;
       textViewClear();
 
       // Render the playfield

@@ -43,7 +43,7 @@ bool doubleStackPush(double value, DoubleStack* stack) {
 bool doubleStackPeekAt(byte offset, DoubleStack* stack, double* value) {
   if(stack == NULL || value == NULL)
     return false;
-  if(stack->data == NULL || !stack->size || offset + 1 > stack->pointer)
+  if(stack->data == NULL || !(stack->size) || offset + 1 > stack->pointer)
     return false;
   *value = stack->data[stack->pointer - offset - 1];
   return true;
@@ -53,3 +53,11 @@ bool doubleStackPeek(DoubleStack* stack, double* value) {
   return doubleStackPeekAt(0, stack, value);
 }
 
+bool doubleStackClear(DoubleStack* stack) {
+  if(stack == NULL)
+    return false;
+  if(stack->data == NULL || !(stack->size))
+    return false;
+  stack->pointer = 0;
+  return true;
+}
