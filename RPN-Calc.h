@@ -2,14 +2,24 @@
 #define RPN_CALC_H
 
 #include <Arduino.h>
-#include <SPI.h>
-#include <SD.h>
-#include <U8g2lib.h>
-#include <Wire.h>
-#include <SparkFunMAX17043.h>
-#include <Keypad.h>
+#include <TimeLib.h>
 
-#define VERSION "1.9"
+#include "hardware.h"
+#include "textView.h"
+#include "keyUtils.h"
+#include "userInterface.h"
+#include "schedule.h"
+
+#include "stackMathGlob.h"
+#include "timeWatchGlob.h"
+#include "snakeGlob.h"
+#include "settingsViewGlob.h"
+
+#define VERSION "2.0"
+#define CLOCKSPEED 72
+#define PROCESSOR "NXP MK20DX256"
+#define MEMORY 64
+
 //#define DEBUG
 
 #define CPU_RESTART_ADDR (uint32_t *)0xE000ED0C
@@ -19,23 +29,8 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-extern const byte lcdDC, lcdCS, lcdRS, lcdBL;
-extern byte lcdContrast, lcdBrightness;
-extern U8G2_PCD8544_84X48_F_4W_HW_SPI display;
-
-extern unsigned long lastEventQuery;
-
-extern const char keymap[4][3];
-extern const byte keypadRows[4];
-extern const byte keypadCols[3];
-extern Keypad keypad;
-
-extern const byte led;
-extern byte ledBrightness;
-
-extern File sdRoot;
-extern const byte sdCS;
-
+void setup(void);
+void loop(void);
 void doEvents(void);
 
 #endif

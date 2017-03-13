@@ -11,6 +11,7 @@
 
 #include "stackMathGlob.h"
 
+// Errors
 enum {
   STMATH_ERR_NONE,
   STMATH_ERR_UNDERFLOW,
@@ -22,9 +23,9 @@ enum {
   STMATH_ERR_ABORTED,
   STMATH_ERR_NOTIMPL,
   STMATH_ERR_UNKNOWN
-} stackMathErrors;
+};
 
-const char* stackMathOpNames[] = {
+const char* stackMathOps[] = {
   "ADD",    //
   "SUB",    //
   "MUL",    //
@@ -73,11 +74,13 @@ const char* stackMathOpNames[] = {
   "FPART",  //
   "MIN",    //
   "MAX",    //
+  "CONV",   //
   "DEG",    //
   "RAD",    //
   "FLAGS"   //
 };
 
+// Operators
 enum {
   SOP_ADD,
   SOP_SUB,
@@ -127,13 +130,27 @@ enum {
   SOP_FPART,
   SOP_MIN,
   SOP_MAX,
+  SOP_CONV,
   SOP_DEG,
   SOP_RAD,
   SOP_FLAGS,
   SOP_ELEMENT_COUNT
-} stackMathOps;
+};
+
+const char* stackMathConvNames[] = {
+  // Pressure
+  "BAR",
+  "KG/",
+  "a",
+  "b",
+  "c",
+  "d"
+};
 
 void stackMathPush(double value, byte* error, DoubleStack* stack);
+
+void stackMathConvert(double value, byte* error, DoubleStack* stack);
+void stackMathFraction(byte* error, DoubleStack* stack);
 
 double radToDeg(double degVal);
 double degToRad(double radVal);

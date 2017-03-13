@@ -1,36 +1,6 @@
 #include "RPN-Calc.h"
-#include "textView.h"
-#include "keyUtils.h"
-#include "userInterface.h"
-#include "schedule.h"
-
-#include "stackMathGlob.h"
-#include "snakeGlob.h"
-
-// pin 14 - Data/Command select (D/C)
-// pin 8  - LCD chip select (CS)
-// pin 15 - LCD reset (RST)
-const byte lcdDC = 14, lcdCS = 8, lcdRS = 15, lcdBL = 9;
-byte lcdContrast = 140, lcdBrightness = 255;
-U8G2_PCD8544_84X48_F_4W_HW_SPI display(U8G2_R0, lcdCS, lcdDC, lcdRS);
 
 Schedule eventSchedule;
-
-const char keymap[4][3] = {
-  {'1','2','3'},
-  {'4','5','6'},
-  {'7','8','9'},
-  {'*','0','#'}
-};
-const byte keypadRows[4] = { 5,  4,  3,  2};
-const byte keypadCols[3] = {23, 22, 21};
-Keypad keypad = Keypad( makeKeymap((char*)keymap), (byte*)keypadRows, (byte*)keypadCols, 4, 3 );
-
-const byte led = A14;
-byte ledBrightness = 200;
-
-File sdRoot;
-const byte sdCS = 16;
 
 void setup() {
   // Set up the serial port
@@ -65,10 +35,10 @@ void setup() {
     // We have a problem; the battery's dead!
     fadeLedTo(led, ledBrightness, 125, 800);
     fadeLedTo(led, 125, 0, 1400);
-    Serial.print("Battery voltage (");
+    Serial.print(F("Battery voltage ("));
     Serial.print(lipo.getVoltage(), DEC);
-    Serial.println("v) too low to boot.");
-    Serial.println("Hanging the CPU!");
+    Serial.println(F("v) too low to boot."));
+    Serial.println(F("Hanging the CPU!"));
     while(1) // hang the cpu drawing as few power as possible
       delay(100);
   }
@@ -92,27 +62,27 @@ void setup() {
   Serial.println(F(" done."));
 
   // Printing boot info
-  textViewFullscreen = false;
+  textViewSetFullscreen(false);
   textViewClear();
-  textViewSetStatus("Booting RPN-Calc v" VERSION, 0);
-  textViewPutCStr("(c) Benedikt M. '17\n\n");
+  textViewSetStatus((char*)("Booting RPN-Calc v" VERSION), 0);
+  textViewPutCCStr("(c) Benedikt M. '17\n\n");
   textViewRender();
 
-  textViewPutCStr("CPU: NXP MK20DX256\n");
-  textViewPutCStr(" @96MHz, 64KB RAM\n");
+  textViewPutCCStr("CPU: " PROCESSOR "\n");
+  textViewPutCCStr(" @" STR(CLOCKSPEED) "MHz, " STR(MEMORY) "KB RAM\n");
   textViewPrintf("LiPo: %0.2fV (%0.0f%%)\n", lipo.getVoltage(), lipo.getSOC());
   textViewRender();
 #ifndef DEBUG
   delay(1600);
 #endif
 
-  textViewPutCStr("Setting up SD: ");
+  textViewPutCCStr("Setting up SD: ");
   textViewRender();
   Serial.print(F("Setting up the SD card..."));
   if (!SD.begin(sdCS)) {
-    textViewColor = 1;
-    textViewPutCStr("failed!\n\n");
-    textViewPutCStr("Boot failed. Rebooting!");
+    textViewSetColor(1);
+    textViewPutCCStr("failed!\n\n");
+    textViewPutCCStr("Boot failed. Rebooting!");
     textViewRender();
     Serial.println(F(" failed!"));
     Serial.println(F("Rebooting system!"));
@@ -136,20 +106,20 @@ void setup() {
   delay(10);
 #endif
   sdRoot = SD.open("/");
-  textViewPutCStr("OK\n");
+  textViewPutCCStr("OK\n");
   Serial.println(F(" done."));
 
   // Initialize the RTC
-  textViewPutCStr("Setting up RTC: ");
+  textViewPutCCStr("Setting up RTC: ");
   textViewRender();
   Serial.print(F("Setting up the real time clock..."));
   setSyncProvider((getExternalTime)Teensy3Clock.get);
-  textViewPutCStr("OK\n");
+  textViewPutCCStr("OK\n");
   Serial.println(F(" done."));
 
   textViewLinefeed();
-  textViewColor = 1;
-  textViewPutCStr("Boot complete!\a");
+  textViewSetColor(1);
+  textViewPutCCStr("Boot complete!\a");
   textViewRender();
   Serial.println("Boot complete!");
 
@@ -174,6 +144,9 @@ void setup() {
 
   // Set up the event scheduler
   scheduleInit(10000, NULL, &eventSchedule);
+
+  // Set up the status handler
+  textViewStatusRegister(&doStatus);
 }
 
 void loop() {
@@ -183,125 +156,35 @@ void loop() {
 
 void mainMenu(void) {
   uiControl();
-  switch(display.userInterfaceSelectionList("System Menu", 1, "Stack Math\nSurvive Maths\nPlay Snake\nReboot")) {
+  switch(display.userInterfaceSelectionList("System Menu", 1, "Calculation\nWatch\nSnake game\nSettings\nReboot")) {
     case 1:
       stackMath();
-      break;
+    break;
     case 2:
-      surviveMaths();
-      break;
+      timeWatch();
+    break;
     case 3:
       snake();
-      break;
+    break;
     case 4:
+      settingsView();
+    break;
+    case 5:
       CPU_RESTART();
       while(1);
   }
 }
 
-////// SURVIVE MATHS /////
-
-int surviveEndHour = -1, surviveEndMinute = -1;
-#define TIME_TO_SECS(h, m, s) (h * 3600 + m * 60 + s)
-#define CUR_TIME_TO_SECS() TIME_TO_SECS(hour(now()), minute(now()), second(now()))
-
-void surviveMaths(void) {
-  textViewFullscreen = false;
-  textViewClear();
-  keyControl();
-  textViewSetTitle("Survive IT!");
-  textViewStatusUpdate();
-  textViewLinefeed();
-  textViewRender();
-  bool resumeTimer = false;
-  if(surviveEndHour > 0 && surviveEndMinute > 0) {
-    textViewPutCStr("Press any key!\n");
-    textViewRender();
-    awaitKey();
-    uiControl();
-    resumeTimer = (display.userInterfaceMessage("Resume timer?", "", "", " Resume \n New ") == 2);
-    keyControl();
-  } else
-    resumeTimer = true;
-
-  if(resumeTimer) {
-    textViewPutCStr("End Hour: ");
-    if(!intEntry(&surviveEndHour, false)) {
-      uiControl();
-      return;
-    }
-    if(surviveEndHour > 23 || surviveEndHour < 0) {
-      uiControl();
-      display.userInterfaceMessage("Error:", "Invalid hour!", "", " OK ");
-      uiControl();
-      return;
-    }
-    textViewPutCStr("End Minute: ");
-    if(!intEntry(&surviveEndMinute, false)) {
-      uiControl();
-      return;
-    }
-    if(surviveEndMinute > 59 || surviveEndMinute < 0) {
-      uiControl();
-      display.userInterfaceMessage("Error:", "Invalid minute!", "", " OK ");
-      uiControl();
-      return;
-    }
-  }
-
-  int targetTime = TIME_TO_SECS(surviveEndHour, surviveEndMinute, 0), curTime;
-  char key;
-  bool survived = true;
-  analogWrite(lcdBL, 0);
-  analogWrite(led, 0);
-  textViewLinefeed();
-  textViewAllowAutoRender = false;
-  display.setPowerSave(true);
-
-  while(targetTime > (curTime = CUR_TIME_TO_SECS())) {
-    doEvents();
-    if((key = keypad.getKey()) && key == '#') {
-      display.setPowerSave(false);
-      char remainingStr[20] = {0};
-      sprintf(remainingStr, "%.4d min remaining", (targetTime - curTime) / 60);
-      textViewSet(-1, 0, 1);
-      textViewPutCStr(remainingStr);
-      textViewStatusUpdate();
-      textViewRender();
-      delay(2000);
-      display.setPowerSave(true);
-    } else if(key == '*') {
-      survived = false;
-      break;
-    }
-  }
-
-  analogWrite(lcdBL, lcdBrightness);
-  analogWrite(led, ledBrightness);
-  display.setPowerSave(false);
-  textViewAllowAutoRender = true;
-  textViewStatusUpdate();
-  textViewLinefeed();
-  if(survived) {
-    surviveEndHour = -1;
-    surviveEndMinute = -1;
-    textViewColor = 1;
-    textViewPutCStr("You survived!!!\n\n");
-    textViewPutCStr("\aPress any key!");
-    textViewRender();
-    awaitKey();
-  }
-  uiControl();
-  delay(200);
+void doStatus(char* statusBuffer, byte statusBufferLength, byte statusTextLength) {
+  char batt = map(lipo.getSOC(), 0, 100, '0', '9');
+  snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %02d.%02d", batt, hour(now()), minute(now()));
 }
 
 // Do events in a blocking loop
 void doEvents(void) {
   if(scheduleRun(&eventSchedule)) {
-    Serial.println("Updating display status bar...");
+    Serial.println(F("Updating display status bar..."));
     textViewStatusUpdate();
-    if(textViewAllowAutoRender)
-      textViewRender();
   }
 }
 

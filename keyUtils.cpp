@@ -1,5 +1,12 @@
 #include "keyUtils.h"
 
+const char keymap[4][3] = {
+  {'1','2','3'},
+  {'4','5','6'},
+  {'7','8','9'},
+  {'*','0','#'}
+};
+
 const byte charMapSegments = 10, charMapFields = 5;
 const char charMap[charMapSegments * charMapFields] = {
   '1',   0,   0,   0,   0,      'A', 'B', 'C', '2',   0,      'D', 'E', 'F', '3',   0,
@@ -42,11 +49,11 @@ bool calmKeys(unsigned short cooldown, unsigned short timeout) {
 
   bool success = false;
   long startTime = millis(), lastPress = millis();
-  while(startTime + timeout > millis()) { // repeat for as long as nothing times out
+  while((unsigned long)(startTime + timeout) > millis()) { // repeat for as long as nothing times out
     doEvents();
     if(!digitalRead(keypadCols[0]) || !digitalRead(keypadCols[1]) || !digitalRead(keypadCols[2]))
       lastPress = millis();
-    else if(lastPress + cooldown < millis()) {
+    else if((unsigned long)(lastPress + cooldown) < millis()) {
       success = true;
       break;
     }

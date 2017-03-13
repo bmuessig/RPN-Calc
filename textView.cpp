@@ -1,4 +1,5 @@
 #include "textView.h"
+#include "textViewPrivate.h"
 
 const byte textViewChrW = 4, textViewChrH = 6, textViewRows = 8, textViewCols = 21, textViewStatusLen = 10,
   textViewTitleLen = textViewCols - textViewStatusLen;
@@ -6,6 +7,7 @@ char textViewTitle[textViewTitleLen + 1] = {0};
 byte textViewRow = 0, textViewCol = 0, textViewColor = 0;
 bool textViewImmLf = false, textViewNextLf = false, textViewFullscreen = true, textViewAllowAutoRender = false;
 unsigned short textView[textViewRows * textViewCols] = { 32 };
+StatusUpdater textViewStatusUpdater;
 
 void textViewPutStrAt(String str, byte color, byte row, byte col) {
   byte oldRow = textViewRow, oldCol = textViewCol, oldColor = textViewColor;
@@ -35,6 +37,20 @@ void textViewPutCStrAt(char* str, byte color, byte row, byte col) {
   textViewNextLf = oldNextLf;
 }
 
+void textViewPutCCStrAt(const char* str, byte color, byte row, byte col) {
+  byte oldRow = textViewRow, oldCol = textViewCol, oldColor = textViewColor;
+  bool oldNextLf = textViewNextLf;
+  textViewRow = row;
+  textViewCol = col;
+  textViewColor = color;
+  textViewNextLf = false;
+  textViewPutCCStr(str);
+  textViewRow = oldRow;
+  textViewCol = oldCol;
+  textViewColor = oldColor;
+  textViewNextLf = oldNextLf;
+}
+
 bool textViewGoto(int row, int col) {
   if(row >= textViewRows || col >= textViewCols)
     return false;
@@ -45,6 +61,46 @@ bool textViewGoto(int row, int col) {
   return true;
 }
 
+bool textViewSeek(signed char offset, char fillChar) {
+  if(fillChar && fillChar < 32)
+    return false;
+  if(offset >= 0) {
+#ifdef DEBUG
+    Serial.print("Positive offset: ");
+    Serial.println(offset, DEC);
+#endif
+    for(; offset > 0; offset--) {
+      if(fillChar)
+        textView[textViewRow * textViewCols + textViewCol] = fillChar;
+      if(textViewCol + 1 < textViewCols)
+        textViewCol++;
+      else
+        textViewLinefeed();
+    }
+  } else {
+#ifdef DEBUG
+    Serial.print("Negative offset: ");
+    Serial.println(offset, DEC);
+#endif
+    for(; offset < 0; offset++) {
+      if(fillChar)
+        textView[textViewRow * textViewCols + textViewCol] = fillChar;
+      if(textViewCol)
+        textViewCol--;
+      else {
+        if(textViewRow) {
+          textViewRow--;
+          textViewCol = 0;
+        } else {
+          Serial.println("Fail");
+          return false; // out of bounds
+        }
+      }
+    }
+  }
+  return true;
+}
+
 bool textViewSet(int row, int col, byte color) {
   if(!textViewGoto(row, col))
     return false;
@@ -52,6 +108,29 @@ bool textViewSet(int row, int col, byte color) {
     return false;
   textViewColor = color;
   return true;
+}
+
+bool textViewSetColor(byte color) {
+  if(color > 3)
+    return false;
+  textViewColor = color;
+  return true;
+}
+
+void textViewSetImmLf(bool immLf) {
+  textViewImmLf = immLf;
+}
+
+bool textViewIsFullscreen(void) {
+  return textViewFullscreen;
+}
+
+void textViewSetFullscreen(bool fullscreen) {
+  textViewFullscreen = fullscreen;
+}
+
+void textViewSetAllowAutoRender(bool allowAutoRender) {
+  textViewAllowAutoRender = allowAutoRender;
 }
 
 bool textViewErase(byte row, byte colStart, byte colEnd) {
@@ -91,11 +170,16 @@ void textViewPutCStr(char* str) {
     textViewPutChr(*(str));
 }
 
+void textViewPutCCStr(const char* str) {
+  for(; *(str); str++)
+    textViewPutChr(*(str));
+}
+
 unsigned int textViewPrintf(const char* format, ...) {
   va_list args;
   va_start(args, format);
   unsigned int strLength;
-  if(strLength = vsnprintf(NULL, 0, format, args)) {
+  if((strLength = vsnprintf(NULL, 0, format, args))) {
     va_end(args);
     char sbuf[strLength + 2];
     va_start(args, format);
@@ -118,7 +202,7 @@ unsigned int textViewPrintfAt(const char* format, byte color, byte row, byte col
   va_list args;
   va_start(args, col);
   unsigned int strLength;
-  if(strLength = vsnprintf(NULL, 0, format, args)) {
+  if((strLength = vsnprintf(NULL, 0, format, args))) {
     va_end(args);
     char sbuf[strLength + 2];
     va_start(args, col);
@@ -182,7 +266,7 @@ void textViewLinefeed(void) {
 }
 
 void textViewBackspace(void) {
-  // TODO: implement backspace
+  textViewSeek(-1, 32);
 }
 
 void textViewClear(void) {
@@ -215,13 +299,24 @@ bool textViewClearStatus(void) {
 bool textViewSetStatus(char* str, byte col) {
   if(textViewFullscreen)
     return false;
-  if(textlen(str) > textViewCols - col)
+  if(textlen(str) > (unsigned int)(textViewCols - col))
     return false;
   textViewPutCStrAt(str, 1, 0, col);
   return true;
 }
 
 bool textViewSetCTitle(char* title) {
+  if(textViewFullscreen)
+    return false;
+  if(strlen(title) > textViewTitleLen)
+    return false;
+  for(byte i = 0; i <= textViewTitleLen; i++)
+    textViewTitle[i] = 0;
+  strncpy(textViewTitle, title, textViewTitleLen);
+  return true;
+}
+
+bool textViewSetCCTitle(const char* title) {
   if(textViewFullscreen)
     return false;
   if(strlen(title) > textViewTitleLen)
@@ -247,13 +342,28 @@ void textViewEraseTitle(void) {
   memset(textViewTitle, 0, textViewTitleLen);
 }
 
+bool textViewStatusRegister(StatusUpdater updater) {
+  if(!updater)
+    return false;
+  textViewStatusUpdater = updater;
+  return true;
+}
+
 bool textViewStatusUpdate(void) {
   if(textViewFullscreen)
     return false;
-  char str[13] = {0}, batt = map(lipo.getSOC(), 0, 100, '0', '9');
-  sprintf(str, "\a \a[%c] %02d.%02d", batt, hour(now()), minute(now()));
+  char status[textViewStatusLen * 2 + 1] = {0};
+  textViewStatusUpdater(status, textViewStatusLen * 2 + 1, textViewStatusLen);
   textViewClearStatus();
-  return (textViewSetStatus(textViewTitle, 0) && textViewSetStatus(str, textViewTitleLen));
+  if(!textViewSetStatus(textViewTitle, 0))
+    return false;
+  if(textlen(status) > textViewStatusLen)
+    return false;
+  if(!textViewSetStatus(status, textViewTitleLen))
+    return false;
+  if(textViewAllowAutoRender)
+    textViewRender();
+  return true;
 }
 
 bool textViewPutChr(char chr) {

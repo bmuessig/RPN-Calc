@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include "RPN-Calc.h"
 
+extern const char keymap[4][3];
 extern const byte charMapSegments, charMapFields;
 extern const char charMap[];
 

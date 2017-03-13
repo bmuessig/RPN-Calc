@@ -26,7 +26,7 @@ void snake(void) {
 }
 
 void snakeGame(void) {
-  textViewFullscreen = true;
+  textViewSetFullscreen(true);
   textViewClear();
   keyControl();
 
@@ -137,6 +137,7 @@ void snakeGame(void) {
     }
   }
 
+  textViewSetFullscreen(false);
 }
 
 void snakeHighScores(void) {

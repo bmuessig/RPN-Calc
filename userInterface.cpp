@@ -50,7 +50,7 @@ byte uiMessagePrintf(const char* format, const char* buttons, ...) {
   va_list args;
   va_start(args, buttons);
   unsigned int strLength;
-  if(strLength = vsnprintf(NULL, 0, format, args)) {
+  if((strLength = vsnprintf(NULL, 0, format, args))) {
     va_end(args);
     char sbuf[strLength + 2];
     va_start(args, buttons);
@@ -90,7 +90,8 @@ byte uiMessagePrintf(const char* format, const char* buttons, ...) {
 
 bool doubleEntry(double* value, byte digits) {
   bool decimalPut = false;
-  char key, buffer[digits + 1], cursor;
+  char key, buffer[digits + 1];
+  byte cursor = 0;
 
   // init buffer
   memset(buffer, 0, digits + 1);
@@ -101,25 +102,27 @@ bool doubleEntry(double* value, byte digits) {
       snprintf(buffer, digits, "%f", *value);
 
     cursor = strlen(buffer);
+    Serial.println(buffer);
+
     textViewPutCStr(buffer);
   } else
     *value = 0.0d;
 
-  textViewPutCStr("_");
-  textViewCol--;
+  textViewPutCCStr("_");
+  textViewSeek(-1, 0);
   textViewRender();
 
   while(true) {
     doEvents();
-    if(key = keypad.getKey()) {
+    if((key = keypad.getKey())) {
       if(key >= '0' && key <= '9') {
         if(cursor < digits) {
           buffer[cursor++] = key;
           textViewPutChr(key);
 
-          if(cursor < digits - 1) {
+          if(cursor < digits) {
             textViewPutChr('_');
-            textViewCol--;
+            textViewSeek(-1, 0);
           }
 
           textViewRender();
@@ -131,15 +134,15 @@ bool doubleEntry(double* value, byte digits) {
             decimalPut = false;
           } else if(buffer[cursor - 1] == '0' && cursor == 1) {
             doErase = false;
-            buffer[cursor - 1] = '-';
-            textViewCol--;
+            buffer[0] = '-';
+            textViewSeek(-1, 0);
             textViewPutChr('-');
           }
           if(doErase) {
-            textViewCol--;
+            textViewSeek(-1, 0);
             buffer[--cursor] = 0;
-            textViewPutCStr("_ ");
-            textViewCol -= 2;
+            textViewPutCCStr("_ ");
+            textViewSeek(-2, 0);
           }
           textViewRender();
         } else
@@ -148,15 +151,15 @@ bool doubleEntry(double* value, byte digits) {
         if(decimalPut) {
           if(cursor == 1) {
             *value = 0.0d;
-            textViewCol--;
-            textViewPutCStr("0.0");
+            textViewSeek(-1, 0);
+            textViewPutCCStr("0.0");
           } else {
             *value = atof(buffer);
             if(buffer[cursor - 1] == '.')
               textViewPutChr('0');
             else {
               textViewPutChr(' ');
-              textViewCol--;
+              textViewSeek(-1, 0);
             }
           }
           textViewLinefeed();
@@ -165,8 +168,8 @@ bool doubleEntry(double* value, byte digits) {
         } else {
           buffer[cursor++] = '.';
           decimalPut = true;
-          textViewPutCStr("._");
-          textViewCol--;
+          textViewPutCCStr("._");
+          textViewSeek(-1, 0);
           textViewRender();
         }
       }
@@ -178,36 +181,37 @@ bool doubleEntry(double* value, byte digits) {
 
 bool intEntry(int* value, bool allowNegative) {
   byte cursor = 0;
-  char key, buffer[9] = {0};
+  const byte length = 8;
+  char key, buffer[length + 1] = {0};
 
-  textViewPutCStr("_");
-  textViewCol--;
+  textViewPutChr('_');
+  textViewSeek(-1, 0);
   textViewRender();
 
   while(true) {
-    if(key = keypad.getKey()) {
+    if((key = keypad.getKey())) {
       if(key >= '0' && key <= '9') {
-        if(cursor < 8) {
+        if(cursor < length) {
           buffer[cursor++] = key;
           textViewPutChr(key);
 
-          if(cursor < 8) {
+          if(cursor < length) {
             textViewPutChr('_');
-            textViewCol--;
+            textViewSeek(-1, 0);
           }
 
           textViewRender();
         }
       } else if(key == '*') {
         if(cursor) {
-          textViewCol--;
+          textViewSeek(-1, 0);
           if(cursor == 1 && buffer[0] == '0' && allowNegative) {
             buffer[--cursor] = '-';
             textViewPutChr('-');
           } else {
             buffer[--cursor] = 0;
-            textViewPutCStr("_ ");
-            textViewCol -= 2;
+            textViewPutCCStr("_ ");
+            textViewSeek(-2, 0);
           }
           textViewRender();
         } else
@@ -221,7 +225,7 @@ bool intEntry(int* value, bool allowNegative) {
           *(value) = atoi(buffer);
 
         textViewPutChr(' ');
-        textViewCol--;
+        textViewSeek(-1, 0);
         textViewLinefeed();
         textViewRender();
         return true;
@@ -234,78 +238,42 @@ bool intEntry(int* value, bool allowNegative) {
   return false;
 }
 
-byte findClosestIndices(char* keyString, const char** items, byte itemCount, byte* indices, byte maxIndices) {
-  if(!keyString || !items || !itemCount || !indices || !maxIndices)
-    return 0; // invalid parameters will not produce valid results
-
-  byte indicesFound = 0, item = 0;
-  while(indicesFound < maxIndices && item < itemCount) { // loop for as long as we have items or can find further items
-    if(strlen(items[item]) < strlen(keyString)) { // if the string is already longer than the item, skip it for speed
-#ifdef DEBUG
-      Serial.println("Skipping due to length");
-#endif
-      item++;
-      continue;
-    }
-    // we now know that the current items length is smaller or equal to the key sequences length
-
-    bool isMatching = true;
-    for(byte chrPos = 0; chrPos < strlen(keyString); chrPos++) { // here we loop through the letters of the key string
-      char itemChr = items[item][chrPos], keyChr = keyString[chrPos];
-      byte mapSegment;
-
-      // now, match the pressed key to a map segment
-      if(!matchMapSegment(keyChr, &mapSegment))
-        return 0; // key string is invalid
-
-#ifdef DEBUG
-      Serial.print("Key: ");
-      Serial.println(keyChr);
-#endif
-
-      // then check if the segment contains the items character
-      if(!mapSegmentMatchesChar(itemChr, mapSegment)) {
-        // it doesn't, so ...
-        isMatching = false; // tell the succeeding code we don't have a match
-        break; // and exit the string comparing loop
-      }
-      // it does, so ...
-      // keep going
-    }
-
-    // did we have a match?
-    if(isMatching)
-      indices[indicesFound++] = item;
-
-    // advance the item pointer
-    item++;
-
-    // and loop again (if possible)
-  }
-
-  return indicesFound;
+byte showItemMenu(char* title, byte defaultItem, const char** allItems, byte numItems, byte* shownItems, byte numShownItems) {
+  return showDualItemMenu(title, defaultItem, allItems, numItems, NULL, 0, shownItems, numShownItems);
 }
 
-byte showItemMenu(char* title, byte defaultItem, const char** allItems, byte numItems, byte* shownItems) {
-  if(!numItems)
+byte showDualItemMenu(char* title, byte defaultItem, const char** allItems1, byte numItems1, const char** allItems2, byte numItems2, byte* shownItems, byte numShownItems) {
+  if(!title || !allItems1 || !numItems1 || (numItems2 && !allItems2) ||
+    !shownItems || !numShownItems || numItems1 + numItems2 >= 0xFF)
     return 0;
 
-  unsigned int menuStrLength = numItems, menuStrPtr = 0; // initialize with the number of linefeeds + 1 (trailing 0-byte)
-  for(byte item = 0; item < numItems; item++) // count the required length of our string buffer
-    menuStrLength += strlen(allItems[shownItems[item]]);
+  unsigned int menuStrLength = numShownItems, menuStrPtr = 0; // initialize with the number of linefeeds + 1 (trailing 0-byte)
+  for(byte item = 0; item < numShownItems; item++) // count the required length of our string buffer
+    menuStrLength += strlen(mergeItemPtr(shownItems[item], allItems1, numItems1, allItems2, numItems2));
+
   char menuStr[menuStrLength];
-  for(byte item = 0; item < numItems; item++) {
+  // for every shown item do this
+  for(byte item = 0; item < numShownItems; item++) {
     if(item)
       menuStr[menuStrPtr++] = '\n'; // for all items except the first, add a preceeding linefeed
-    strcpy((char*)(menuStr + menuStrPtr), allItems[shownItems[item]]); // copy the string to our buffer
-    menuStrPtr += strlen(allItems[shownItems[item]]); // add the length of the string, except for the zero byte that we'll overwrite
+    strcpy((char*)(menuStr + menuStrPtr), mergeItemPtr(shownItems[item], allItems1, numItems1, allItems2, numItems2)); // copy the string to our buffer
+    menuStrPtr += strlen(mergeItemPtr(shownItems[item], allItems1, numItems1, allItems2, numItems2)); // add the length of the string, except for the zero byte that we'll overwrite
   }
 
   return display.userInterfaceSelectionList(title, defaultItem, menuStr);
 }
 
 bool smartMenu(const char* title, const char** items, byte itemCount, byte maxItemsListed, byte* selection) {
-  if(!title || !items || !itemCount || !maxItemsListed || !selection)
+  return smartDualFilteredMenu(title, items, itemCount, NULL, 0, NULL, 0, maxItemsListed, selection);
+}
+
+bool smartFilteredMenu(const char* title, const char** items, byte itemCount, byte* blacklist, byte blacklistCount, byte maxItemsListed, byte* selection) {
+  return smartDualFilteredMenu(title, items, itemCount, NULL, 0, blacklist, blacklistCount, maxItemsListed, selection);
+}
+
+bool smartDualFilteredMenu(const char* title, const char** items1, byte itemCount1, const char** items2, byte itemCount2, byte* blacklist, byte blacklistCount, byte maxItemsListed, byte* selection) {
+  if(!title || !items1 || !itemCount1 || (itemCount2 && !items2) ||
+    itemCount1 + itemCount2 >= 0xFF || !maxItemsListed || !selection)
     return false;
 
   const byte keyStringLength = 18;
@@ -317,7 +285,7 @@ bool smartMenu(const char* title, const char** items, byte itemCount, byte maxIt
   memset(indices, 0, maxItemsListed);
   textViewClear();
   while(true) {
-    if(key = keypad.getKey()) {
+    if((key = keypad.getKey())) {
       if(key >= '0' && key <= '9') {
         if(cursor < keyStringLength) {
           keyString[cursor++] = key;
@@ -340,12 +308,12 @@ bool smartMenu(const char* title, const char** items, byte itemCount, byte maxIt
 
       textViewClear();
       textViewStatusUpdate();
-      textViewPutCStrAt((char*)title, TV_COLOR_F0H1, 1, 0);
-      textViewPutCStrAt("> ", TV_COLOR_F1H0, 2, 0);
+      textViewPutCCStrAt(title, TV_COLOR_F0H1, 1, 0);
+      textViewPutCCStrAt("> ", TV_COLOR_F1H0, 2, 0);
       textViewPutCStrAt(keyString, TV_COLOR_F1H0, 2, 2);
 
       // We're in the 4th (index 5) row and draw the suggestions to the 8th row (index 7)
-      numIndices = findClosestIndices(keyString, items, itemCount, indices, maxItemsListed);
+      numIndices = findClosestIndicesDualFiltered(keyString, items1, itemCount1, items2, itemCount2, blacklist, blacklistCount, indices, maxItemsListed);
 #ifdef DEBUG
       Serial.print("Key string: ");
       Serial.println(keyString);
@@ -353,7 +321,7 @@ bool smartMenu(const char* title, const char** items, byte itemCount, byte maxIt
       Serial.println(numIndices, DEC);
 #endif
       for(byte index = 0; index < constrain(numIndices, 0, shownIndices); index++)
-        textViewPutCStrAt((char*)items[indices[index]], TV_COLOR_F1H0, index + 3, 0);
+        textViewPutCCStrAt(mergeItemPtr(indices[index], items1, itemCount1, items2, itemCount2), TV_COLOR_F1H0, index + 3, 0);
       textViewRender();
     }
 
@@ -369,55 +337,10 @@ bool smartMenu(const char* title, const char** items, byte itemCount, byte maxIt
     return true;
   } else if(numIndices > 1) {
     uiControl();
-    *selection = indices[showItemMenu((char*)title, 1, items, numIndices, indices) - 1];
+    *selection = indices[showDualItemMenu((char*)title, 1, items1, itemCount1, items2, itemCount2, indices, numIndices) - 1];
     keyControl();
     return true;
   }
 
   return false;
 }
-
-/*int fileMenu(File startDir) {
-  String fileList = String("");
-
-  while(true) {
-    File entry = startDir.openNextFile();
-    if(!entry)
-      break;
-    Serial.println(entry.name());
-    if(fileList.length())
-      fileList = fileList + String("\n") + String(entry.name());
-    else
-      fileList = String(entry.name());
-  }
-
-  char buffer[fileList.length() + 1];
-  fileList.toCharArray(buffer, fileList.length() + 1);
-
-  uiControl();
-  return display.userInterfaceSelectionList("System Menu", 1, buffer);
-}*/
-
-/*void fileMenu(File dir) {
-   while(true) {
-     File entry =  dir.openNextFile();
-     if (! entry) {
-       // no more files
-       //Serial.println("**nomorefiles**");
-       break;
-     }
-
-     if (entry.isDirectory()) {
-       uiControl();
-       display.userInterfaceMessage("Next entry:", entry.name(), "- Directory -", " OK ");
-       fileMenu(entry);
-     } else {
-       char buffer[10];
-       sprintf(buffer, "%d B", entry.size());
-       uiControl();
-       display.userInterfaceMessage("Next entry:", entry.name(), buffer, " OK ");
-     }
-     entry.close();
-   }
-}
-*/

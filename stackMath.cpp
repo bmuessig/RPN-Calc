@@ -1,10 +1,10 @@
 #include "stackMath.h"
 
 void stackMath(void) {
-  textViewFullscreen = false;
-  textViewClear();
+  textViewClearAll();
+  textViewSetFullscreen(false);
   keyControl();
-  textViewSetTitle("Stack Math");
+  textViewSetCCTitle("Stack Math");
   textViewStatusUpdate();
   textViewLinefeed();
   textViewRender();
@@ -19,15 +19,15 @@ void stackMath(void) {
   }
 
   while(true) {
-    if(key = keypad.getKey()) {
+    if((key = keypad.getKey())) {
       if(key >= '0' && key <= '9') { // enter numbers
         double value = (double)(key - '0');
         textViewClear();
         textViewStatusUpdate();
         textViewSet(7, 0, TV_COLOR_F1H0);
-        textViewPutCStr("*:BKSP/-/EX, #:DP/ENT");
+        textViewPutCCStr("*:BKSP/-/EX, #:DP/ENT");
         textViewSet(2, 0, TV_COLOR_F1H0);
-        textViewPutCStr("Push value:\n");
+        textViewPutCCStr("Push value:\n");
         if(doubleEntry(&value, 18)) {
           if(!doubleStackPush(value, &stack)) {
             uiControl();
@@ -56,7 +56,7 @@ void stackMath(void) {
           doRedraw = true;
       } else if(key == '#') { // operation menu
         byte selection;
-        if(smartMenu("Select operation:", stackMathOpNames, SOP_ELEMENT_COUNT, SOP_ELEMENT_COUNT, &selection)) {
+        if(smartMenu("Select operation:", stackMathOps, SOP_ELEMENT_COUNT, SOP_ELEMENT_COUNT, &selection)) {
           double val1 = NAN, val2 = NAN;
           byte error = STMATH_ERR_NONE;
 
@@ -116,6 +116,7 @@ void stackMath(void) {
               case SOP_FLOOR:
               case SOP_CEIL:
               case SOP_FPART:
+              case SOP_CONV:
                 if(!doubleStackPop(&stack, &val1)) {
                   error = STMATH_ERR_UNDERFLOW;
                   break;
@@ -149,22 +150,7 @@ void stackMath(void) {
                   stackMathPush(fmod(val2, val1), &error, &stack);
                 break;
                 case SOP_FRX:
-                  int a, b;
-                  textViewClear();
-                  textViewStatusUpdate();
-                  textViewSet(2, 0, TV_COLOR_F1H0);
-                  textViewPutCStr("Fraction a / b\na: ");
-                  if(!intEntry(&a, true))
-                    break;
-                  textViewPutCStr("b: ");
-                  if(!intEntry(&b, false))
-                    break;
-                  keyControl();
-                  if(b == 0) {
-                    error = STMATH_ERR_DIVZERO;
-                    break;
-                  }
-                  stackMathPush((double)((double)a / (double)b), &error, &stack);
+                  stackMathFraction(&error, &stack);
                 break;
                 case SOP_INC:
                   stackMathPush(val1 + 1, &error, &stack);
@@ -347,6 +333,9 @@ void stackMath(void) {
                 case SOP_MAX:
                   stackMathPush(val1 > val2 ? val1 : val2, &error, &stack);
                 break;
+                case SOP_CONV:
+                  stackMathConvert(val1, &error, &stack);
+                break;
                 case SOP_DEG:
                   useRads = false;
                 break;
@@ -410,26 +399,26 @@ void stackMath(void) {
       if(stack.pointer) {
         textViewSet(1, 0, TV_COLOR_F1H0);
 #ifdef DEBUG
-        Serial.print("Stackptr: ");
+        Serial.print(F("Stackptr: "));
         Serial.println(stack.pointer, DEC);
 #endif
         for(byte ptr = 0; ptr < constrain(stack.pointer, 0, 6); ptr++) {
 #ifdef DEBUG
-          Serial.print("Pointer: ");
+          Serial.print(F("Pointer: "));
           Serial.println(ptr, DEC);
-          Serial.print("Success: ");
+          Serial.print(F("Success: "));
           Serial.println(doubleStackPeekAt(ptr, &stack, &stackVal), DEC);
-          Serial.print("Value: ");
+          Serial.print(F("Value: "));
           Serial.println(stackVal, DEC);
 #endif
           if(doubleStackPeekAt(ptr, &stack, &stackVal))
             textViewNPrintf("%f\n", 21, stackVal);
           else
-            textViewPutCStr("nan\n");
+            textViewPutCCStr("error\n");
         }
       }
       textViewSet(7, 0, TV_COLOR_F1H0);
-      textViewPutCStr("*:EXIT, 0-9:NUM, #:OP");
+      textViewPutCCStr("*:EXIT, 0-9:NUM, #:OP");
 
       textViewStatusUpdate();
       textViewRender();
@@ -446,6 +435,29 @@ void stackMath(void) {
 void stackMathPush(double value, byte* error, DoubleStack* stack) {
   if(!*error)
     *error = doubleStackPush(value, stack) ? STMATH_ERR_NONE : STMATH_ERR_OVERFLOW;
+}
+
+void stackMathFraction(byte* error, DoubleStack* stack) {
+  int a, b;
+  textViewClear();
+  textViewStatusUpdate();
+  textViewSet(2, 0, TV_COLOR_F1H0);
+  textViewPutCCStr("Fraction a / b\na: ");
+  if(!intEntry(&a, true))
+    return;
+  textViewPutCCStr("b: ");
+  if(!intEntry(&b, false))
+    return;
+  keyControl();
+  if(b == 0) {
+    *error = STMATH_ERR_DIVZERO;
+    return;
+  }
+  stackMathPush((double)((double)a / (double)b), error, stack);
+}
+
+void stackMathConvert(double value, byte* error, DoubleStack* stack) {
+
 }
 
 double radToDeg(double degVal) {

@@ -8,11 +8,13 @@
 
 #include "snakeGlob.h"
 
+// Candy states
 enum {
   SNAKE_CANDY_PENDING,
   SNAKE_CANDY_PRESENT
-} snakeCandyStates;
+};
 
+// Directions
 enum {
   SNAKE_DIR_NONE  = 0b0000,
 
@@ -29,7 +31,7 @@ enum {
 
   SNAKE_DIR_SE    = SNAKE_DIR_SOUTH | SNAKE_DIR_EAST,
   SNAKE_DIR_SW    = SNAKE_DIR_SOUTH | SNAKE_DIR_WEST
-} snakeDirections;
+};
 
 void snakeGame(void);
 void snakeHighScores(void);
