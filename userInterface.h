@@ -4,7 +4,8 @@
 #include <Arduino.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include "RPN-Calc.h"
+#include "system.h"
+#include "hardware.h"
 #include "keyUtils.h"
 #include "textView.h"
 #include "listTools.h"

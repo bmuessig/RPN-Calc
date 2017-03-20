@@ -1,13 +1,13 @@
 #include "stackMath.h"
+#include "stackMathGlob.h"
 
 void stackMath(void) {
   textViewClearAll();
-  textViewSetFullscreen(false);
-  keyControl();
   textViewSetCCTitle("Stack Math");
   textViewStatusUpdate();
   textViewLinefeed();
   textViewRender();
+  keyControl();
 
   const byte stackSize = 16;
   char key;
@@ -90,8 +90,9 @@ void stackMath(void) {
               case SOP_DEC:
               case SOP_SQ:
               case SOP_SQRT:
-              case SOP_LOG10:
+              case SOP_LG:
               case SOP_LN:
+              case SOP_LB:
               case SOP_FAC:
               case SOP_ABS:
               case SOP_NEG:
@@ -174,11 +175,14 @@ void stackMath(void) {
                   }
                   stackMathPush(sqrt(val1), &error, &stack);
                 break;
-                case SOP_LOG10:
+                case SOP_LG:
                   stackMathPush(log(val1) / log(10), &error, &stack);
                 break;
                 case SOP_LN:
                   stackMathPush(log(val1), &error, &stack);
+                break;
+                case SOP_LB:
+                  stackMathPush(log(val1) / log(2), &error, &stack);
                 break;
                 case SOP_LOG:
                   stackMathPush(log(val2) / log(val1), &error, &stack);
@@ -412,9 +416,9 @@ void stackMath(void) {
           Serial.println(stackVal, DEC);
 #endif
           if(doubleStackPeekAt(ptr, &stack, &stackVal))
-            textViewNPrintf("%f\n", 21, stackVal);
+            textViewNPrintf("%d: %f\n", textViewCols, ptr, stackVal);
           else
-            textViewPutCCStr("error\n");
+            textViewPrintf("%d: error\n", ptr);
         }
       }
       textViewSet(7, 0, TV_COLOR_F1H0);
@@ -424,7 +428,7 @@ void stackMath(void) {
       textViewRender();
     }
 
-    doEvents();
+    handleEvents();
   }
 
   doubleStackDestroy(&stack);
@@ -457,6 +461,44 @@ void stackMathFraction(byte* error, DoubleStack* stack) {
 }
 
 void stackMathConvert(double value, byte* error, DoubleStack* stack) {
+  byte fromUnit, toUnit, whitelistSize, whitelistStart, blacklistStart, blacklistSize;
+
+  if(!smartMenu("Source unit:", stackMathConvs, SCV_LIST_END, SCV_LIST_END, &fromUnit))
+    return;
+  if(fromUnit >= SCV_PRESSURE && fromUnit < SCV_VOLUME) { // Pressure can only convert to pressure
+    whitelistSize = SCV_VOLUME - SCV_PRESSURE - 1;
+    whitelistStart = SCV_PRESSURE;
+    blacklistStart = SCV_VOLUME;
+  } else if(fromUnit >= SCV_VOLUME && fromUnit < SCV_LIST_END) {
+    whitelistSize = SCV_LIST_END - SCV_VOLUME - 1;
+    whitelistStart = SCV_VOLUME;
+    blacklistStart = SCV_LIST_END;
+  }
+
+  // Calculate the size of the new blacklist
+  blacklistSize = SCV_LIST_END - whitelistSize;
+  // Now build the blacklist
+  byte blacklist[blacklistSize], blacklistPtr = 0;
+  memset(blacklist, 0xFF, blacklistSize);
+  // By adding the source unit first
+  blacklist[blacklistPtr++] = fromUnit;
+  // And adding all preceeding entries
+  for(byte entry = 0; entry < whitelistStart; entry++)
+    blacklist[blacklistPtr++] = entry;
+  // And adding all succeeding entries
+  for(byte entry = blacklistStart; entry < SCV_LIST_END; entry++)
+    blacklist[blacklistPtr++] = entry;
+
+#ifdef DEBUG
+    Serial.print("Expected: ");
+    Serial.print(blacklistSize, DEC);
+    Serial.print(", Used: ");
+    Serial.println(blacklistPtr, DEC);
+#endif
+
+  // Now show the menu
+  if(!smartFilteredMenu("Target unit:", stackMathConvs, whitelistSize, blacklist, blacklistSize, whitelistSize, &toUnit))
+    return;
 
 }
 

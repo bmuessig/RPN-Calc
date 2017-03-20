@@ -1,6 +1,7 @@
 #include "RPN-Calc.h"
 
 Schedule eventSchedule;
+bool timerCycle = false;
 
 void setup() {
   // Set up the serial port
@@ -62,9 +63,8 @@ void setup() {
   Serial.println(F(" done."));
 
   // Printing boot info
-  textViewSetFullscreen(false);
-  textViewClear();
-  textViewSetStatus((char*)("Booting RPN-Calc v" VERSION), 0);
+  textViewClearAll();
+  textViewPutStatus((char*)("Booting RPN-Calc v" VERSION), 0);
   textViewPutCCStr("(c) Benedikt M. '17\n\n");
   textViewRender();
 
@@ -142,11 +142,16 @@ void setup() {
   textViewClearAll();
   textViewRender();
 
+  // Set up the System
+  systemInit();
+
   // Set up the event scheduler
   scheduleInit(10000, NULL, &eventSchedule);
-
   // Set up the status handler
   textViewStatusRegister(&doStatus);
+
+  // Set up the event handler
+  registerEvent(doEvents);
 }
 
 void loop() {
@@ -156,7 +161,7 @@ void loop() {
 
 void mainMenu(void) {
   uiControl();
-  switch(display.userInterfaceSelectionList("System Menu", 1, "Calculation\nWatch\nSnake game\nSettings\nReboot")) {
+  switch(display.userInterfaceSelectionList("System Menu", 1, "Calculation\nWatch\nSnake game\nSettings\nSleep\nReboot")) {
     case 1:
       stackMath();
     break;
@@ -170,6 +175,13 @@ void mainMenu(void) {
       settingsView();
     break;
     case 5:
+      hwDeepSleep(true);
+      keyControl();
+      awaitKey();
+      uiControl();
+      hwDeepSleep(false);
+    break;
+    case 6:
       CPU_RESTART();
       while(1);
   }
@@ -177,14 +189,22 @@ void mainMenu(void) {
 
 void doStatus(char* statusBuffer, byte statusBufferLength, byte statusTextLength) {
   char batt = map(lipo.getSOC(), 0, 100, '0', '9');
-  snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %02d.%02d", batt, hour(now()), minute(now()));
+  if(timeWatchTimerRunning() && timerCycle) {
+    unsigned int startPos;
+    snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %n", batt, &startPos);
+    timeWatchTimerStatus(statusBuffer + startPos);
+  } else
+    snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %02d.%02d", batt, hour(now()), minute(now()));
 }
 
 // Do events in a blocking loop
-void doEvents(void) {
+void doEvents(byte rank) {
   if(scheduleRun(&eventSchedule)) {
+#ifdef DEBUG
     Serial.println(F("Updating display status bar..."));
+#endif
     textViewStatusUpdate();
+    timerCycle = !timerCycle;
   }
 }
 

@@ -5,12 +5,24 @@ int timerEndHour = -1, timerEndMinute = -1;
 
 void timeWatch(void) {
   textViewClearAll();
-  textViewSetFullscreen(false);
   keyControl();
   textViewSetCCTitle("Watch");
   textViewStatusUpdate();
   textViewLinefeed();
+
+  GraphicsArea clockArea;
+  bool resrg = textViewGraphics(1, 1, 5, 10, TV_COLOR_F1HT, &clockArea);
+#ifdef DEBUG
+  Serial.print("Gfx success: ");
+  Serial.println(resrg, DEC);
+#endif
+  bool resrc = timeWatchRenderClock(&clockArea, false, 12, 30, 25);
+#ifdef DEBUG
+  Serial.print("Clock success: ");
+  Serial.println(resrc, DEC);
+#endif
   textViewRender();
+  awaitKey();
 
   bool resumeTimer = false;
   if(timerEndHour > 0 && timerEndMinute > 0) {
@@ -18,12 +30,17 @@ void timeWatch(void) {
     textViewRender();
     awaitKey();
     uiControl();
-    resumeTimer = (display.userInterfaceMessage("Resume timer?", "", "", " Resume \n New ") == 2);
+    byte action = display.userInterfaceMessage("Timer already running.", "What should be done?", "", "Resume\nStop\nNew");
+    if(action == 1)
+      resumeTimer = true;
+    else if(action == 2) {
+      timeWatchTimerStop();
+      return;
+    }
     keyControl();
-  } else
-    resumeTimer = true;
+  }
 
-  if(resumeTimer) {
+  if(!resumeTimer) {
     textViewPutCCStr("End Hour: ");
     if(!intEntry(&timerEndHour, false)) {
       uiControl();
@@ -55,33 +72,30 @@ void timeWatch(void) {
   int targetTime = TIME_TO_SECS(timerEndHour, timerEndMinute, 0), curTime;
   char key;
   bool survived = true;
-  analogWrite(lcdBL, 0);
-  analogWrite(led, 0);
   textViewLinefeed();
   textViewSetAllowAutoRender(false);
-  display.setPowerSave(true);
+  hwDeepSleep(true);
 
   while(targetTime > (curTime = CUR_TIME_TO_SECS()) && doSleep) {
-    doEvents();
+    handleEvents();
     if((key = keypad.getKey()) && key == '#') {
-      display.setPowerSave(false);
-      char remainingStr[20] = {0};
-      sprintf(remainingStr, "%.4d min remaining", (targetTime - curTime) / 60);
+      hwDeepSleep(false);
+      char timeStr[7] = {0};
+      timeWatchTimerStatus(timeStr);
       textViewSet(-1, 0, 1);
-      textViewPutCStr(remainingStr);
+      textViewPutCStr(timeStr);
+      textViewPutCCStr(" remaining");
       textViewStatusUpdate();
       textViewRender();
       delay(2000);
-      display.setPowerSave(true);
+      hwDeepSleep(true);
     } else if(key == '*') {
       survived = false;
       break;
     }
   }
 
-  analogWrite(lcdBL, lcdBrightness);
-  analogWrite(led, ledBrightness);
-  display.setPowerSave(false);
+  hwDeepSleep(false);
   textViewSetAllowAutoRender(true);
   textViewStatusUpdate();
   textViewLinefeed();
@@ -98,12 +112,43 @@ void timeWatch(void) {
   delay(200);
 }
 
+bool timeWatchRenderClock(GraphicsArea* renderArea, bool invertColors,
+  byte hour, byte minute, byte second) {
+  bool showSecond = (second != 0xFF), showMinute = (minute != 0xFF);
+  if(!renderArea || hour > 23 || (minute > 59 && showMinute) || (second > 59 && showSecond)) {
+#ifdef DEBUG
+  Serial.println("Invalid function args!");
+#endif
+    return false;
+  }
+  if(!(renderArea->width) || !(renderArea->height)) {
+#ifdef DEBUG
+    Serial.println("Invalid render area!");
+#endif
+    return false;
+  }
+  byte boxSize, boxOriginX = 0, boxOriginY = 0;
+  if(renderArea->width < renderArea->height) {
+    boxSize = renderArea->width;
+    boxOriginY = (renderArea->height - renderArea->width) / 2;
+  } else {
+    boxSize = renderArea->height;
+    boxOriginX = (renderArea->width - renderArea->height) / 2;
+  }
+  boxOriginX += renderArea->originX;
+  boxOriginY += renderArea->originY;
+  byte boxCenterX = boxOriginX + boxSize / 2, boxCenterY = boxOriginY + boxSize / 2;
+  display.setDrawColor(!invertColors);
+  display.drawCircle(boxCenterX, boxCenterY, boxSize / 2, U8G2_DRAW_ALL);
+  return true;
+}
+
 bool timeWatchTimerStart(byte hour, byte minute) {
   if(hour > 23 || minute > 59)
     return false;
   timerEndHour = hour;
   timerEndMinute = minute;
-  return true;
+  return timeWatchTimerRunning();
 }
 
 void timeWatchTimerStop(void) {

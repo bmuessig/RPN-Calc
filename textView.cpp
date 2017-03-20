@@ -1,12 +1,19 @@
 #include "textView.h"
 #include "textViewPrivate.h"
 
-const byte textViewChrW = 4, textViewChrH = 6, textViewRows = 8, textViewCols = 21, textViewStatusLen = 10,
-  textViewTitleLen = textViewCols - textViewStatusLen;
-char textViewTitle[textViewTitleLen + 1] = {0};
+// Copyright 2017 Benedikt Muessig <mail@bmuessig.eu>
+// All rights reserved
+// DO NOT DISTRIBUTE COPIES OF THIS SOFTWARE
+// DO NOT REMOVE THIS HEADER
+
+const byte textViewChrW = 4, textViewChrH = 6,
+  textViewRows = lcdHeight / textViewChrH /*8*/,
+  textViewCols = lcdWidth / textViewChrW /*21*/,
+  textViewStatusLen = 10, textViewTitleLen = textViewCols - textViewStatusLen;
+char textViewTitle[textViewTitleLen + 1];
 byte textViewRow = 0, textViewCol = 0, textViewColor = 0;
 bool textViewImmLf = false, textViewNextLf = false, textViewFullscreen = true, textViewAllowAutoRender = false;
-unsigned short textView[textViewRows * textViewCols] = { 32 };
+unsigned short textView[textViewRows * textViewCols];
 StatusUpdater textViewStatusUpdater;
 
 void textViewPutStrAt(String str, byte color, byte row, byte col) {
@@ -51,7 +58,7 @@ void textViewPutCCStrAt(const char* str, byte color, byte row, byte col) {
   textViewNextLf = oldNextLf;
 }
 
-bool textViewGoto(int row, int col) {
+bool textViewGoto(byte row, byte col) {
   if(row >= textViewRows || col >= textViewCols)
     return false;
   if(row >= 0)
@@ -61,8 +68,26 @@ bool textViewGoto(int row, int col) {
   return true;
 }
 
-bool textViewSeek(signed char offset, char fillChar) {
-  if(fillChar && fillChar < 32)
+// Allocate graphics buffer within the text buffer
+bool textViewGraphics(byte originRow, byte originCol, byte rows, byte cols,
+  byte color, GraphicsArea* area) {
+  color &= 0x7;
+  if(originRow >= textViewRows || originCol >= textViewCols || !rows || !cols || !area
+    || (color != TV_COLOR_F1HT && color != TV_COLOR_F0HT && color != TV_COLOR_FXHT));
+    return false;
+  area->originX = originCol * textViewChrW;
+  area->originY = originRow * textViewChrH;
+  area->width = cols * textViewChrW;
+  area->height = rows * textViewChrH;
+  return textViewPaint(originRow, originCol, rows, cols, color);
+}
+
+bool textViewSeek(signed char offset) {
+  return textViewSeekFill(offset, 0, 0);
+}
+
+bool textViewSeekFill(signed char offset, char character, byte color) {
+  if((character && character < 32) || (color &= 0x7) > 4)
     return false;
   if(offset >= 0) {
 #ifdef DEBUG
@@ -70,8 +95,8 @@ bool textViewSeek(signed char offset, char fillChar) {
     Serial.println(offset, DEC);
 #endif
     for(; offset > 0; offset--) {
-      if(fillChar)
-        textView[textViewRow * textViewCols + textViewCol] = fillChar;
+      if(character)
+        textView[textViewRow * textViewCols + textViewCol] = (character << 3) | color;
       if(textViewCol + 1 < textViewCols)
         textViewCol++;
       else
@@ -83,8 +108,8 @@ bool textViewSeek(signed char offset, char fillChar) {
     Serial.println(offset, DEC);
 #endif
     for(; offset < 0; offset++) {
-      if(fillChar)
-        textView[textViewRow * textViewCols + textViewCol] = fillChar;
+      if(character)
+        textView[textViewRow * textViewCols + textViewCol] = (character << 3) | color;
       if(textViewCol)
         textViewCol--;
       else {
@@ -101,7 +126,32 @@ bool textViewSeek(signed char offset, char fillChar) {
   return true;
 }
 
-bool textViewSet(int row, int col, byte color) {
+bool textViewPaint(byte row, byte col, byte rows, byte cols, byte color) {
+  return textViewFill(row, col, rows, cols, 0, color);
+}
+
+bool textViewFill(byte row, byte col, byte rows, byte cols, char character, byte color) {
+  if(row + rows > textViewRows || col + cols > textViewCols || (color &= 0x7) > 4
+    || (character && character < 32))
+    return false;
+  if(!character)
+    character = 32;
+  rows += row;
+  cols += cols;
+  for(; row < rows; row++) {
+    for(; col < cols; col++) {
+      if(character)
+        textView[row * textViewCols + col] = (character << 3) | color;
+      else {
+        textView[row * textViewCols + col] &= (~0x7); // clear the last 3 bits
+        textView[row * textViewCols + col] |= color; // bitmask the color
+      }
+    }
+  }
+  return true;
+}
+
+bool textViewSet(byte row, byte col, byte color) {
   if(!textViewGoto(row, col))
     return false;
   if(color > 3)
@@ -136,8 +186,8 @@ void textViewSetAllowAutoRender(bool allowAutoRender) {
 bool textViewErase(byte row, byte colStart, byte colEnd) {
   if(colEnd >= textViewCols || row >= textViewRows)
     return false;
-  for(; colStart < colEnd; colStart++)
-    textView[row * textViewCols + colStart] = 32 << 2;
+  for(; colStart <= colEnd; colStart++)
+    textView[row * textViewCols + colStart] = (32 << 3) | TV_COLOR_F1H0;
   return true;
 }
 
@@ -256,9 +306,7 @@ void textViewLinefeed(void) {
       for(byte col = 0; col < textViewCols; col++)
         textView[(row - 1) * textViewCols + col] = textView[row * textViewCols + col];
     }
-
-    for(byte col = 0; col < textViewCols; col++)
-      textView[(textViewRows - 1) * textViewCols + col] = 32 << 2;
+    textViewEraseLine(textViewRows - 1);
   } else
     textViewRow++;
   textViewCol = 0;
@@ -266,12 +314,13 @@ void textViewLinefeed(void) {
 }
 
 void textViewBackspace(void) {
-  textViewSeek(-1, 32);
+  textViewSeekFill(-1, 32, TV_COLOR_F1H0);
 }
 
+// Clear the entire screen
 void textViewClear(void) {
-  for(unsigned int i = 0; i < textViewRows * textViewCols; i++)
-    textView[i] = 32;
+  for(byte line = 0; line < textViewRows; line++)
+    textViewEraseLine(line);
   textViewRow = textViewFullscreen ? 0 : 1;
   textViewCol = 0;
   textViewNextLf = false;
@@ -280,23 +329,21 @@ void textViewClear(void) {
 
 // Used after exiting a sub program
 void textViewClearAll(void) {
-  textViewFullscreen = true;
+  textViewFullscreen = false;
   textViewAllowAutoRender = true;
   textViewEraseTitle();
   textViewClear();
-  if(!textViewFullscreen)
-    textViewClearStatus();
+  textViewClearStatus();
 }
 
 bool textViewClearStatus(void) {
   if(textViewFullscreen)
     return false;
-  for(unsigned int i = 0; i < textViewCols; i++)
-      textViewPutChrAt(' ', 0, 0, i);
-   return true;
+  textViewEraseLine(0);
+  return true;
 }
 
-bool textViewSetStatus(char* str, byte col) {
+bool textViewPutStatus(char* str, byte col) {
   if(textViewFullscreen)
     return false;
   if(textlen(str) > (unsigned int)(textViewCols - col))
@@ -310,8 +357,7 @@ bool textViewSetCTitle(char* title) {
     return false;
   if(strlen(title) > textViewTitleLen)
     return false;
-  for(byte i = 0; i <= textViewTitleLen; i++)
-    textViewTitle[i] = 0;
+  textViewEraseTitle();
   strncpy(textViewTitle, title, textViewTitleLen);
   return true;
 }
@@ -321,8 +367,7 @@ bool textViewSetCCTitle(const char* title) {
     return false;
   if(strlen(title) > textViewTitleLen)
     return false;
-  for(byte i = 0; i <= textViewTitleLen; i++)
-    textViewTitle[i] = 0;
+  textViewEraseTitle();
   strncpy(textViewTitle, title, textViewTitleLen);
   return true;
 }
@@ -332,8 +377,7 @@ bool textViewSetTitle(String title) {
     return false;
   if(title.length() > textViewTitleLen)
     return false;
-  for(byte i = 0; i <= textViewTitleLen; i++)
-    textViewTitle[i] = 0;
+  textViewEraseTitle();
   title.toCharArray(textViewTitle, textViewTitleLen + 1);
   return true;
 }
@@ -355,14 +399,14 @@ bool textViewStatusUpdate(void) {
   char status[textViewStatusLen * 2 + 1] = {0};
   textViewStatusUpdater(status, textViewStatusLen * 2 + 1, textViewStatusLen);
   textViewClearStatus();
-  if(!textViewSetStatus(textViewTitle, 0))
+  if(!textViewPutStatus(textViewTitle, 0))
     return false;
   if(textlen(status) > textViewStatusLen)
     return false;
-  if(!textViewSetStatus(status, textViewTitleLen))
+  if(!textViewPutStatus(status, textViewTitleLen))
     return false;
   if(textViewAllowAutoRender)
-    textViewRender();
+    textViewRenderStatus();
   return true;
 }
 
@@ -382,8 +426,7 @@ bool textViewPutChr(char chr) {
       textViewColor = 0;
     return true;
   } else if(chr >= 32) {
-    textView[(unsigned int)textViewRow * textViewCols + textViewCol] = (chr << 2) | (textViewColor & 0x3);
-
+    textView[(unsigned int)textViewRow * textViewCols + textViewCol] = (chr << 3) | (textViewColor & 0x3);
     if(textViewCol + 1 >= textViewCols)
       if(textViewImmLf)
         textViewLinefeed();
@@ -398,50 +441,73 @@ bool textViewPutChr(char chr) {
 }
 
 void textViewRender(void) {
-  display.setCursor(0,0);
-  display.clearBuffer();
-  textViewDraw();
+  display.setCursor(0, 0);
+  textViewDraw(false);
   display.sendBuffer();
 }
 
-void textViewDraw(void) {
-  // set the font
+void textViewRenderStatus(void) {
+  display.setCursor(0, 0);
+  display.setDrawColor(0);
+  display.drawBox(0, 0, lcdWidth, textViewChrH); // erase line in buffer 0
+  textViewDraw(true);
+  display.sendBuffer();
+}
+
+void textViewDraw(bool statusOnly) {
+  // set the default font
   display.setFont(textViewFont);
+  // Render the rows and cols matrix
+  for(byte row = 0; row < (statusOnly ? 1 : textViewRows); row++)
+    textViewDrawLine(row);
+}
 
-  for(byte row = 0; row < textViewRows; row++) {
-    for(byte col = 0; col < textViewCols; col++) {
-      unsigned short glyph = textView[row * textViewCols + col];
-      // Determine the style
-      switch(glyph & 0x3) {
-        case TV_COLOR_F1H0:
-          // Solid background
-          display.setFontMode(0);
-          // Foreground black
-          display.setDrawColor(1);
-          break;
-        case TV_COLOR_F0H1:
-          // Solid background
-          display.setFontMode(0);
-          // Foreground white
-          display.setDrawColor(0);
-          break;
-        case TV_COLOR_F1HT:
-          // Transparent background
-          display.setFontMode(1);
-          // Foreground black
-          display.setDrawColor(1);
-          break;
-        case TV_COLOR_FXHT:
-          // Transparent background
-          display.setFontMode(1);
-          // Foreground XOR
-          display.setDrawColor(2);
-          break;
-      }
-
-      display.drawGlyph(col * textViewChrW, (row + 1) * textViewChrH, textView[row * textViewCols + col] >> 2);
+// draws a line in the currently loaded font
+bool textViewDrawLine(byte row) {
+  if(row > textViewRows)
+    return false;
+  // render the cols
+  for(byte col = 0; col < textViewCols; col++) {
+    unsigned short glyph = textView[row * textViewCols + col];
+    // Determine the style
+    switch(glyph & 0x3) {
+      case TV_COLOR_F1H0:
+        // Solid background
+        display.setFontMode(0);
+        // Foreground black
+        display.setDrawColor(1);
+      break;
+      case TV_COLOR_F0H1:
+        // Solid background
+        display.setFontMode(0);
+        // Foreground white
+        display.setDrawColor(0);
+      break;
+      case TV_COLOR_F1HT:
+        // Transparent background
+        display.setFontMode(1);
+        // Foreground black
+        display.setDrawColor(1);
+      break;
+      case TV_COLOR_F0HT:
+        // Transparent background
+        display.setFontMode(1);
+        // Foreground white
+        display.setDrawColor(0);
+      break;
+      case TV_COLOR_FXHT:
+        // Transparent background
+        display.setFontMode(1);
+        // Foreground XOR
+        display.setDrawColor(2);
+      break;
+      default:
+        return false;
     }
+
+    display.drawGlyph(col * textViewChrW, (row + 1) * textViewChrH, textView[row * textViewCols + col] >> 3);
   }
+  return true;
 }
 
 unsigned int textlen(char* str) {

@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <U8g2lib.h>
+#include "system.h"
+#include "config.h"
 #include "hardware.h"
 
 // Our text buffer

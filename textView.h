@@ -3,25 +3,38 @@
 
 #include <Arduino.h>
 #include <stdarg.h>
+#include "hardware.h"
 
 // Colors
 enum {
-  TV_COLOR_F1H0 = 0,
-  TV_COLOR_F0H1 = 1,
-  TV_COLOR_F1HT = 2,
-  TV_COLOR_FXHT = 3
+  TV_COLOR_F1H0,
+  TV_COLOR_F0H1,
+  TV_COLOR_F1HT,
+  TV_COLOR_F0HT,
+  TV_COLOR_FXHT
 };
 extern const byte textViewChrW, textViewChrH, textViewRows, textViewCols,
   textViewStatusLen, textViewTitleLen;
 
 typedef void (*StatusUpdater)(char* statusBuffer, byte maxBufLen, byte maxTextLen);
 
+typedef struct {
+  unsigned short originX;
+  unsigned short originY;
+  unsigned short width;
+  unsigned short height;
+} GraphicsArea;
+
 void textViewPutStrAt(String str, byte color, byte row, byte col);
 void textViewPutCStrAt(char* str, byte color, byte row, byte col);
 void textViewPutCCStrAt(const char* str, byte color, byte row, byte col);
-bool textViewGoto(int row, int col);
-bool textViewSeek(signed char offset, char fillChar);
-bool textViewSet(int row, int col, byte color);
+bool textViewGoto(byte row, byte col);
+bool textViewGraphics(byte originRow, byte originCol, byte rows, byte cols, byte color, GraphicsArea* area);
+bool textViewSeek(signed char offset);
+bool textViewSeekFill(signed char offset, char character, byte color);
+bool textViewPaint(byte row, byte col, byte rows, byte cols, byte color);
+bool textViewFill(byte row, byte col, byte rows, byte cols, char character, byte color);
+bool textViewSet(byte row, byte col, byte color);
 bool textViewSetColor(byte color);
 void textViewSetImmLf(bool immLf);
 void textViewSetFullscreen(bool fullscreen);
@@ -42,7 +55,7 @@ void textViewBackspace(void);
 void textViewClear(void);
 void textViewClearAll(void);
 bool textViewClearStatus(void);
-bool textViewSetStatus(char* str, byte col);
+bool textViewPutStatus(char* str, byte col);
 bool textViewSetCTitle(char* title);
 bool textViewSetCCTitle(const char* title);
 bool textViewSetTitle(String title);
@@ -51,7 +64,9 @@ bool textViewStatusRegister(StatusUpdater updater);
 bool textViewStatusUpdate(void);
 bool textViewPutChr(char chr);
 void textViewRender(void);
-void textViewDraw(void);
+void textViewRenderStatus(void);
+void textViewDraw(bool statusOnly);
+bool textViewDrawLine(byte row);
 unsigned int textlen(char* str);
 
 #endif

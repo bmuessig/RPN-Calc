@@ -7,12 +7,12 @@ const char keymap[4][3] = {
   {'*','0','#'}
 };
 
-const byte charMapSegments = 10, charMapFields = 5;
+const byte charMapSegments = 10, charMapFields = 6;
 const char charMap[charMapSegments * charMapFields] = {
-  '1',   0,   0,   0,   0,      'A', 'B', 'C', '2',   0,      'D', 'E', 'F', '3',   0,
-  'G', 'H', 'I', '4',   0,      'J', 'K', 'L', '5',   0,      'M', 'N', 'O', '6',   0,
-  'P', 'Q', 'R', 'S', '7',      'T', 'U', 'V', '8',   0,      'W', 'X', 'Y', 'Z', '9',
-                                ' ', '_', '0',   0,   0
+  '1', '!', '"', '$', '%', '&',     'A', 'B', 'C', '2', '<', '(',     'D', 'E', 'F', '3', ')', '>',
+  'G', 'H', 'I', '4', '[', '.',     'J', 'K', 'L', '5', ']', ',',     'M', 'N', 'O', '6', '=', '^',
+  'P', 'Q', 'R', 'S', '7', '+',     'T', 'U', 'V', '8', '*', '#',     'W', 'X', 'Y', 'Z', '9', ';',
+                                    ' ', '_', '-', '0', '/', '|'
 };
 
 void uiControl(void) {
@@ -33,7 +33,7 @@ char awaitKey(void) {
   char key;
   keyControl();
   while(!(key = keypad.getKey()))
-    doEvents();
+    handleEvents();
   keyControl();
   return key;
 }
@@ -50,7 +50,7 @@ bool calmKeys(unsigned short cooldown, unsigned short timeout) {
   bool success = false;
   long startTime = millis(), lastPress = millis();
   while((unsigned long)(startTime + timeout) > millis()) { // repeat for as long as nothing times out
-    doEvents();
+    handleEvents();
     if(!digitalRead(keypadCols[0]) || !digitalRead(keypadCols[1]) || !digitalRead(keypadCols[2]))
       lastPress = millis();
     else if((unsigned long)(lastPress + cooldown) < millis()) {

@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <TimeLib.h>
+#include "config.h"
 #include "textView.h"
 #include "keyUtils.h"
 #include "userInterface.h"

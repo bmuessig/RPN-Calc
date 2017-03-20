@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <math.h>
-#include "RPN-Calc.h"
+#include "system.h"
 #include "textView.h"
 #include "keyUtils.h"
 #include "userInterface.h"
@@ -38,8 +38,9 @@ const char* stackMathOps[] = {
   "EE",     //
   "SQ",     //
   "SQRT",   //
-  "LOG10",  //
+  "LG",     //
   "LN",     //
+  "LB",     //
   "LOG",    //
   "FAC",    //
   "ABS",    //
@@ -94,8 +95,9 @@ enum {
   SOP_EE,
   SOP_SQ,
   SOP_SQRT,
-  SOP_LOG10,
+  SOP_LG,
   SOP_LN,
+  SOP_LB,
   SOP_LOG,
   SOP_FAC,
   SOP_ABS,
@@ -137,14 +139,32 @@ enum {
   SOP_ELEMENT_COUNT
 };
 
-const char* stackMathConvNames[] = {
+const char* stackMathConvs[] = {
   // Pressure
   "BAR",
-  "KG/",
-  "a",
-  "b",
-  "c",
-  "d"
+  "N/M^2",
+  "N/MM^2",
+  // Volume
+  "LITRE",
+  "M^3",
+  "MM^3"
+};
+
+enum {
+  // Pressure
+  SCV_BAR,
+  SCV_NPM2,
+  SCV_NPMM2,
+
+  // Volume
+  SCV_LITRE,
+  SCV_M3,
+  SCV_MM3,
+
+  // Misc
+  SCV_LIST_END,
+  SCV_PRESSURE = SCV_BAR,
+  SCV_VOLUME = SCV_LITRE
 };
 
 void stackMathPush(double value, byte* error, DoubleStack* stack);

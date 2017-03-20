@@ -109,11 +109,11 @@ bool doubleEntry(double* value, byte digits) {
     *value = 0.0d;
 
   textViewPutCCStr("_");
-  textViewSeek(-1, 0);
+  textViewSeek(-1);
   textViewRender();
 
   while(true) {
-    doEvents();
+    handleEvents();
     if((key = keypad.getKey())) {
       if(key >= '0' && key <= '9') {
         if(cursor < digits) {
@@ -122,7 +122,7 @@ bool doubleEntry(double* value, byte digits) {
 
           if(cursor < digits) {
             textViewPutChr('_');
-            textViewSeek(-1, 0);
+            textViewSeek(-1);
           }
 
           textViewRender();
@@ -135,14 +135,14 @@ bool doubleEntry(double* value, byte digits) {
           } else if(buffer[cursor - 1] == '0' && cursor == 1) {
             doErase = false;
             buffer[0] = '-';
-            textViewSeek(-1, 0);
+            textViewSeek(-1);
             textViewPutChr('-');
           }
           if(doErase) {
-            textViewSeek(-1, 0);
+            textViewSeek(-1);
             buffer[--cursor] = 0;
             textViewPutCCStr("_ ");
-            textViewSeek(-2, 0);
+            textViewSeek(-2);
           }
           textViewRender();
         } else
@@ -151,7 +151,7 @@ bool doubleEntry(double* value, byte digits) {
         if(decimalPut) {
           if(cursor == 1) {
             *value = 0.0d;
-            textViewSeek(-1, 0);
+            textViewSeek(-1);
             textViewPutCCStr("0.0");
           } else {
             *value = atof(buffer);
@@ -159,7 +159,7 @@ bool doubleEntry(double* value, byte digits) {
               textViewPutChr('0');
             else {
               textViewPutChr(' ');
-              textViewSeek(-1, 0);
+              textViewSeek(-1);
             }
           }
           textViewLinefeed();
@@ -169,7 +169,7 @@ bool doubleEntry(double* value, byte digits) {
           buffer[cursor++] = '.';
           decimalPut = true;
           textViewPutCCStr("._");
-          textViewSeek(-1, 0);
+          textViewSeek(-1);
           textViewRender();
         }
       }
@@ -185,7 +185,7 @@ bool intEntry(int* value, bool allowNegative) {
   char key, buffer[length + 1] = {0};
 
   textViewPutChr('_');
-  textViewSeek(-1, 0);
+  textViewSeek(-1);
   textViewRender();
 
   while(true) {
@@ -197,21 +197,21 @@ bool intEntry(int* value, bool allowNegative) {
 
           if(cursor < length) {
             textViewPutChr('_');
-            textViewSeek(-1, 0);
+            textViewSeek(-1);
           }
 
           textViewRender();
         }
       } else if(key == '*') {
         if(cursor) {
-          textViewSeek(-1, 0);
+          textViewSeek(-1);
           if(cursor == 1 && buffer[0] == '0' && allowNegative) {
             buffer[--cursor] = '-';
             textViewPutChr('-');
           } else {
             buffer[--cursor] = 0;
             textViewPutCCStr("_ ");
-            textViewSeek(-2, 0);
+            textViewSeek(-2);
           }
           textViewRender();
         } else
@@ -225,14 +225,14 @@ bool intEntry(int* value, bool allowNegative) {
           *(value) = atoi(buffer);
 
         textViewPutChr(' ');
-        textViewSeek(-1, 0);
+        textViewSeek(-1);
         textViewLinefeed();
         textViewRender();
         return true;
       }
     }
 
-    doEvents();
+    handleEvents();
   }
 
   return false;
@@ -325,7 +325,7 @@ bool smartDualFilteredMenu(const char* title, const char** items1, byte itemCoun
       textViewRender();
     }
 
-    doEvents();
+    handleEvents();
   }
 
   textViewClear();

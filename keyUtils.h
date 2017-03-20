@@ -2,7 +2,9 @@
 #define KEYUTILS_H
 
 #include <Arduino.h>
-#include "RPN-Calc.h"
+#include "system.h"
+#include "hardware.h"
+#include "RPN-Calc-Global.h"
 
 extern const char keymap[4][3];
 extern const byte charMapSegments, charMapFields;

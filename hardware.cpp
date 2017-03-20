@@ -13,3 +13,9 @@ byte ledBrightness = 200;
 
 File sdRoot;
 const byte sdCS = 16;
+
+void hwDeepSleep(bool enable) {
+  display.setPowerSave(enable);
+  analogWrite(lcdBL, enable ? 0 : lcdBrightness);
+  analogWrite(led, enable ? 0 : ledBrightness);
+}
