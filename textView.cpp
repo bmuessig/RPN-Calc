@@ -72,14 +72,37 @@ bool textViewGoto(byte row, byte col) {
 bool textViewGraphics(byte originRow, byte originCol, byte rows, byte cols,
   byte color, GraphicsArea* area) {
   color &= 0x7;
-  if(originRow >= textViewRows || originCol >= textViewCols || !rows || !cols || !area
-    || (color != TV_COLOR_F1HT && color != TV_COLOR_F0HT && color != TV_COLOR_FXHT));
+  if(originRow + rows >= textViewRows || originCol + cols >= textViewCols
+    || !rows || !cols || !area
+    || (color != TV_COLOR_F1HT && color != TV_COLOR_F0HT && color != TV_COLOR_FXHT))
     return false;
   area->originX = originCol * textViewChrW;
   area->originY = originRow * textViewChrH;
   area->width = cols * textViewChrW;
   area->height = rows * textViewChrH;
+#ifdef DEBUG
+  Serial.print("OriginRow: ");
+  Serial.println(originRow, DEC);
+  Serial.print("OriginCol: ");
+  Serial.println(originCol, DEC);
+  Serial.print("Rows: ");
+  Serial.println(rows, DEC);
+  Serial.print("Cols: ");
+  Serial.println(cols, DEC);
+  Serial.print("OriginX: ");
+  Serial.println(area->originX, DEC);
+  Serial.print("OriginY: ");
+  Serial.println(area->originY, DEC);
+  Serial.print("Width: ");
+  Serial.println(area->width, DEC);
+  Serial.print("Height: ");
+  Serial.println(area->height, DEC);
+#endif
   return textViewPaint(originRow, originCol, rows, cols, color);
+}
+
+void textViewWipeGraphics(void) {
+  display.clearBuffer();
 }
 
 bool textViewSeek(signed char offset) {
@@ -136,10 +159,11 @@ bool textViewFill(byte row, byte col, byte rows, byte cols, char character, byte
     return false;
   if(!character)
     character = 32;
+  byte startCol = col;
   rows += row;
-  cols += cols;
+  cols += col;
   for(; row < rows; row++) {
-    for(; col < cols; col++) {
+    for(col = startCol; col < cols; col++) {
       if(character)
         textView[row * textViewCols + col] = (character << 3) | color;
       else {
@@ -332,6 +356,7 @@ void textViewClearAll(void) {
   textViewFullscreen = false;
   textViewAllowAutoRender = true;
   textViewEraseTitle();
+  textViewWipeGraphics();
   textViewClear();
   textViewClearStatus();
 }

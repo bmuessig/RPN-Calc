@@ -11,12 +11,14 @@ void timeWatch(void) {
   textViewLinefeed();
 
   GraphicsArea clockArea;
-  bool resrg = textViewGraphics(1, 1, 5, 10, TV_COLOR_F1HT, &clockArea);
+  textViewWipeGraphics();
+  bool resrg = textViewGraphics(2, 2, 5, 10, TV_COLOR_F1HT, &clockArea);
 #ifdef DEBUG
   Serial.print("Gfx success: ");
   Serial.println(resrg, DEC);
 #endif
-  bool resrc = timeWatchRenderClock(&clockArea, false, 12, 30, 25);
+  bool resrc = timeWatchRenderClock(&clockArea, false,
+    hour(now()), minute(now()), /*second(now())*/ 0xFF);
 #ifdef DEBUG
   Serial.print("Clock success: ");
   Serial.println(resrc, DEC);
@@ -127,19 +129,52 @@ bool timeWatchRenderClock(GraphicsArea* renderArea, bool invertColors,
 #endif
     return false;
   }
-  byte boxSize, boxOriginX = 0, boxOriginY = 0;
+  byte boxSize, boxOriginX = 1, boxOriginY = 1;
   if(renderArea->width < renderArea->height) {
-    boxSize = renderArea->width;
-    boxOriginY = (renderArea->height - renderArea->width) / 2;
+    boxSize = renderArea->width - 1;
+    boxOriginY += (renderArea->height - renderArea->width) / 2;
   } else {
-    boxSize = renderArea->height;
-    boxOriginX = (renderArea->width - renderArea->height) / 2;
+    boxSize = renderArea->height - 1;
+    boxOriginX += (renderArea->width - renderArea->height) / 2;
   }
   boxOriginX += renderArea->originX;
   boxOriginY += renderArea->originY;
   byte boxCenterX = boxOriginX + boxSize / 2, boxCenterY = boxOriginY + boxSize / 2;
+  Serial.print("Hour: ");
+  Serial.println(hour, DEC);
+  Serial.print("Minute: ");
+  Serial.println(minute, DEC);
+  Serial.print("Second: ");
+  Serial.println(second, DEC);
+  Serial.print("BoxSize: ");
+  Serial.println(boxSize, DEC);
+  Serial.print("BoxOriginX: ");
+  Serial.println(boxOriginX, DEC);
+  Serial.print("BoxOriginY: ");
+  Serial.println(boxOriginY, DEC);
+  Serial.print("BoxCenterX: ");
+  Serial.println(boxCenterX, DEC);
+  Serial.print("BoxCenterY: ");
+  Serial.println(boxCenterY, DEC);
   display.setDrawColor(!invertColors);
   display.drawCircle(boxCenterX, boxCenterY, boxSize / 2, U8G2_DRAW_ALL);
+  // Draw the hour
+  hour %= 12;
+  byte endX = boxCenterX + CIRCLE_X((360/12) * hour - 45, boxSize / 5),
+    endY = boxCenterY + CIRCLE_Y((360/12) * hour - 45, boxSize / 5);
+  display.drawLine(boxCenterX, boxCenterY, endX, endY);
+
+  if(showMinute) {
+    endX = boxCenterX + CIRCLE_X((360/60) * minute - 45, boxSize / 3);
+    endY = boxCenterY + CIRCLE_Y((360/60) * minute - 45, boxSize / 3);
+    display.drawLine(boxCenterX, boxCenterY, endX, endY);
+  }
+
+  if(showSecond) {
+    endY = boxCenterY + CIRCLE_Y((360/60) * second - 45, boxSize / 2);
+    endX = boxCenterX + CIRCLE_X((360/60) * second - 45, boxSize / 2);
+    display.drawLine(boxCenterX, boxCenterY, endX, endY);
+  }
   return true;
 }
 

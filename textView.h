@@ -30,6 +30,7 @@ void textViewPutCStrAt(char* str, byte color, byte row, byte col);
 void textViewPutCCStrAt(const char* str, byte color, byte row, byte col);
 bool textViewGoto(byte row, byte col);
 bool textViewGraphics(byte originRow, byte originCol, byte rows, byte cols, byte color, GraphicsArea* area);
+void textViewWipeGraphics(void);
 bool textViewSeek(signed char offset);
 bool textViewSeekFill(signed char offset, char character, byte color);
 bool textViewPaint(byte row, byte col, byte rows, byte cols, byte color);
