@@ -5,6 +5,7 @@ typedef struct {
   unsigned int updated;
   unsigned int tick;
   unsigned int delta;
+  unsigned int skip;
   void (*event)(void);
 } Schedule;
 

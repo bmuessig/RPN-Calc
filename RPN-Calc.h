@@ -12,7 +12,8 @@
 #include "keyUtils.h"
 #include "userInterface.h"
 #include "schedule.h"
-#include "headerUtils.h"
+#include "rtc.h"
+#include "toolkit.h"
 
 #include "stackMathGlob.h"
 #include "timeWatchGlob.h"

@@ -21,6 +21,10 @@ void setup() {
   fadeLed(led, HIGH, 800, ledBrightness);
 
   Serial.println(F("RPN-Calculator version " VERSION " booting"));
+  Serial.print(F("Built: "));
+  Serial.print(__DATE__);
+  Serial.print(' ');
+  Serial.println(__TIME__);
   Serial.println();
 
   // Start the battery management IC
@@ -113,7 +117,7 @@ void setup() {
   textViewPutCCStr("Setting up RTC: ");
   textViewRender();
   Serial.print(F("Setting up the real time clock..."));
-  setSyncProvider((getExternalTime)Teensy3Clock.get);
+  rtcInit();
   textViewPutCCStr("OK\n");
   Serial.println(F(" done."));
 
@@ -146,7 +150,7 @@ void setup() {
   systemInit();
 
   // Set up the event scheduler
-  scheduleInit(10000, NULL, &eventSchedule);
+  scheduleInit(5000, NULL, &eventSchedule);
   // Set up the status handler
   textViewStatusRegister(&doStatus);
 
@@ -188,13 +192,14 @@ void mainMenu(void) {
 }
 
 void doStatus(char* statusBuffer, byte statusBufferLength, byte statusTextLength) {
-  char batt = map(lipo.getSOC(), 0, 100, '0', '9');
+  char batt = dthchr(map(lipo.getSOC(), 0, 100, 0, 15), true);
   if(timeWatchTimerRunning() && timerCycle) {
     unsigned int startPos;
     snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %n", batt, &startPos);
     timeWatchTimerStatus(statusBuffer + startPos);
   } else
-    snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %02d.%02d", batt, hour(now()), minute(now()));
+    snprintf(statusBuffer, statusBufferLength, "\a \a[%c] %02d.%02d",
+      batt, hour(rtcGet()), minute(rtcGet()));
 }
 
 // Do events in a blocking loop

@@ -36,6 +36,7 @@ const char* stackMathOps[] = {
   "DEC",    //
   "POW",    //
   "EE",     //
+  "EEE",    //
   "SQ",     //
   "SQRT",   //
   "LG",     //
@@ -93,6 +94,7 @@ enum {
   SOP_DEC,
   SOP_POW,
   SOP_EE,
+  SOP_EEE,
   SOP_SQ,
   SOP_SQRT,
   SOP_LG,

@@ -88,6 +88,7 @@ void stackMath(void) {
               // One value popped
               case SOP_INC:
               case SOP_DEC:
+              case SOP_EEE:
               case SOP_SQ:
               case SOP_SQRT:
               case SOP_LG:
@@ -164,6 +165,9 @@ void stackMath(void) {
                 break;
                 case SOP_EE:
                   stackMathPush(val2 * pow(10, val1), &error, &stack);
+                break;
+                case SOP_EEE:
+                  stackMathPush(pow(10, val1), &error, &stack);
                 break;
                 case SOP_SQ:
                   stackMathPush(sq(val1), &error, &stack);
